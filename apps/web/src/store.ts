@@ -64,7 +64,7 @@ interface AppState {
   updateNode: (id: string, patch: Partial<Pick<WorkflowNode, "label" | "config">>) => void;
   addNode: (kind: NodeKind) => void;
   deleteNode: (id: string) => void;
-  connect: (source: string, target: string) => void;
+  connect: (source: string, target: string, sourceHandle?: string) => void;
   deleteEdge: (id: string) => void;
   relayout: () => Promise<void>;
   persistNow: () => Promise<void>;
@@ -264,13 +264,24 @@ export const useApp = create<AppState>((set, get) => {
       set((s) => ({ selectedNodeId: s.selectedNodeId === id ? null : s.selectedNodeId }));
     },
 
-    connect: (source, target) => {
+    connect: (source, target, sourceHandle = "") => {
       if (source === target) return;
       mutate((g) => {
-        if (g.edges.some((e) => e.source === source && e.target === target)) return g;
+        if (
+          g.edges.some(
+            (e) =>
+              e.source === source &&
+              e.target === target &&
+              (e.sourceHandle ?? "") === sourceHandle,
+          )
+        )
+          return g;
         return {
           ...g,
-          edges: [...g.edges, { id: `e_${source}_${target}_${rand()}`, source, target }],
+          edges: [
+            ...g.edges,
+            { id: `e_${source}_${target}_${rand()}`, source, target, sourceHandle },
+          ],
         };
       });
     },

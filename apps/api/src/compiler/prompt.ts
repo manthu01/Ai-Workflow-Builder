@@ -38,11 +38,15 @@ RULES
 7. For every "llm" node set a "tier": "fast" for trivial rewrites/short
    summaries/simple classification, "balanced" for normal drafting/extraction,
    "deep" only for genuinely hard multi-step reasoning or analysis.
-8. Prefer a dedicated node (slack_post) over http_request when one fits.
-9. For "trigger", pick the event: "webhook" for "when X happens in <service>",
+8. Use a "branch" node for "if X then ... otherwise ..." logic. Its outgoing
+   edges MUST set "sourceHandle" to "true" or "false"; every other edge sets
+   "sourceHandle" to "". Nodes can run in parallel - fan multiple edges out of
+   one node when steps are independent.
+10. Prefer a dedicated node (slack_post) over http_request when one fits.
+11. For "trigger", pick the event: "webhook" for "when X happens in <service>",
    "schedule" for "every day / hourly", "manual" otherwise. Always include a
    realistic samplePayload that later nodes can template against.
-10. Keep it minimal: only the nodes needed to fulfil the request.
+12. Keep it minimal: only the nodes needed to fulfil the request.
 
 EXAMPLE
 Request: "When a PR is merged, summarize it and post the summary to #eng on Slack."
@@ -53,7 +57,7 @@ Graph:
   "Summarize this merged pull request in 2 sentences for a team channel.\\n\\nTitle: {{ trigger.pull_request.title }}\\nDescription: {{ trigger.pull_request.body }}"
 - post_to_slack (kind slack_post): channel "#eng", text
   "Merged: {{ trigger.pull_request.title }}\\n{{ summarize.text }}\\n{{ trigger.pull_request.html_url }}"
-Edges: trigger -> summarize -> post_to_slack`;
+Edges (sourceHandle ""): trigger -> summarize -> post_to_slack`;
 }
 
 export function buildUserPrompt(request: string): string {

@@ -52,7 +52,12 @@ export class StubCompilerProvider implements WorkflowCompilerProvider {
           : "Summarize the following in one sentence:\n\n{{ trigger.message }}",
       },
     });
-    edges.push({ id: "e_trigger_summarize", source: "trigger", target: "summarize" });
+    edges.push({
+      id: "e_trigger_summarize",
+      source: "trigger",
+      target: "summarize",
+      sourceHandle: "",
+    });
 
     if (wantsSlack) {
       nodes.push({
@@ -70,6 +75,7 @@ export class StubCompilerProvider implements WorkflowCompilerProvider {
         id: "e_summarize_slack",
         source: "summarize",
         target: "post_to_slack",
+        sourceHandle: "",
       });
     } else if (wantsHttp) {
       nodes.push({
@@ -83,7 +89,12 @@ export class StubCompilerProvider implements WorkflowCompilerProvider {
           body: JSON.stringify({ summary: "{{ summarize.text }}" }),
         },
       });
-      edges.push({ id: "e_summarize_api", source: "summarize", target: "call_api" });
+      edges.push({
+        id: "e_summarize_api",
+        source: "summarize",
+        target: "call_api",
+        sourceHandle: "",
+      });
     }
 
     return {

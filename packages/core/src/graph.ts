@@ -22,6 +22,12 @@ export const WorkflowEdgeSchema = z.object({
   id: z.string().min(1),
   source: NodeIdSchema,
   target: NodeIdSchema,
+  /**
+   * Which output of the source node this edge leaves from. Only meaningful for
+   * "branch" nodes, whose handles are "true" / "false". Empty = the default
+   * single output.
+   */
+  sourceHandle: z.string().default(""),
 });
 export type WorkflowEdge = z.infer<typeof WorkflowEdgeSchema>;
 
@@ -101,7 +107,62 @@ export function validateGraph(graph: WorkflowGraph): GraphIssue[] {
     }
   }
 
+  // Branch nodes: outgoing edges must be labelled true/false and both paths present.
+  for (const node of graph.nodes) {
+    if (node.kind !== "branch") continue;
+    const out = graph.edges.filter((e) => e.source === node.id);
+    const handles = new Set(out.map((e) => e.sourceHandle || "true"));
+    for (const e of out) {
+      if (e.sourceHandle && e.sourceHandle !== "true" && e.sourceHandle !== "false") {
+        issues.push({
+          level: "error",
+          nodeId: node.id,
+          message: `branch edge "${e.id}" has an invalid handle "${e.sourceHandle}"`,
+        });
+      }
+    }
+    if (out.length > 0 && (!handles.has("true") || !handles.has("false"))) {
+      issues.push({
+        level: "warning",
+        nodeId: node.id,
+        message: `branch "${node.id}" is missing a ${handles.has("true") ? "false" : "true"} path`,
+      });
+    }
+  }
+
   return issues;
+}
+
+export interface NodeOutcome {
+  status: "pending" | "running" | "succeeded" | "failed" | "skipped";
+  output?: unknown;
+}
+
+/** Whether a branch node's output selects the "true" path. */
+export function branchTakesTrue(output: unknown): boolean {
+  return Boolean((output as { result?: unknown } | undefined)?.result);
+}
+
+/**
+ * Inbound edges that currently carry a live value into `nodeId`: the source
+ * succeeded, and if the source is a branch, this edge is on the taken side.
+ */
+export function liveInboundEdges(
+  graph: WorkflowGraph,
+  nodeId: string,
+  results: Record<string, NodeOutcome>,
+): WorkflowEdge[] {
+  return graph.edges.filter((e) => {
+    if (e.target !== nodeId) return false;
+    const src = results[e.source];
+    if (!src || src.status !== "succeeded") return false;
+    const srcNode = graph.nodes.find((n) => n.id === e.source);
+    if (srcNode?.kind === "branch") {
+      const taken = branchTakesTrue(src.output) ? "true" : "false";
+      return (e.sourceHandle || "true") === taken;
+    }
+    return true;
+  });
 }
 
 function findCycleNodes(graph: WorkflowGraph): string[] {

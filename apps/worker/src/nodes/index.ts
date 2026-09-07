@@ -4,6 +4,7 @@ import { runTrigger } from "./trigger.js";
 import { runLlm } from "./llm.js";
 import { runHttpRequest } from "./httpRequest.js";
 import { runTransform } from "./transform.js";
+import { runBranch } from "./branch.js";
 import { runSlackPost } from "./slackPost.js";
 
 export const NODE_EXECUTORS: Record<NodeKind, NodeExecutor> = {
@@ -11,6 +12,7 @@ export const NODE_EXECUTORS: Record<NodeKind, NodeExecutor> = {
   llm: runLlm,
   http_request: runHttpRequest,
   transform: runTransform,
+  branch: runBranch,
   slack_post: runSlackPost,
 };
 

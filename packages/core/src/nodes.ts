@@ -10,6 +10,7 @@ export const NODE_KINDS = [
   "llm",
   "http_request",
   "transform",
+  "branch",
   "slack_post",
 ] as const;
 
@@ -64,6 +65,15 @@ export const TransformConfig = z.object({
   expression: z.string().min(1),
 });
 
+export const BranchConfig = z.object({
+  /**
+   * A JavaScript expression evaluated against `input` (merged upstream outputs).
+   * A truthy result activates the "true" edges, falsy activates the "false"
+   * edges; the other branch's downstream nodes are skipped.
+   */
+  expression: z.string().min(1),
+});
+
 export const SlackPostConfig = z.object({
   /** Channel name or id, e.g. "#eng" or "C0123". Templated. */
   channel: z.string().min(1),
@@ -78,6 +88,7 @@ export const NODE_CONFIG_SCHEMAS = {
   llm: LlmConfig,
   http_request: HttpRequestConfig,
   transform: TransformConfig,
+  branch: BranchConfig,
   slack_post: SlackPostConfig,
 } satisfies Record<NodeKind, z.ZodTypeAny>;
 
@@ -223,6 +234,26 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
         default: "input",
         placeholder: "{ title: input.trigger.pull_request.title }",
         help: "One JS expression. `input` is the merged upstream outputs.",
+      },
+    ],
+  },
+  branch: {
+    kind: "branch",
+    title: "Branch (if / else)",
+    description:
+      "Evaluates a condition and routes the workflow down its 'true' or 'false' path. Use for non-linear logic.",
+    isTrigger: false,
+    hasSideEffects: false,
+    configFields:
+      "expression: string (JS boolean expression against `input`; true -> true edges, false -> false edges)",
+    fields: [
+      {
+        key: "expression",
+        label: "Condition",
+        widget: "textarea",
+        default: "true",
+        placeholder: "input.trigger.pull_request.merged === true",
+        help: "JS expression. Truthy takes the 'true' path, falsy the 'false' path.",
       },
     ],
   },

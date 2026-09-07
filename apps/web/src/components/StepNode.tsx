@@ -14,14 +14,23 @@ const KIND_LABEL: Record<NodeKind, string> = {
   llm: "LLM Step",
   http_request: "HTTP Request",
   transform: "Transform",
+  branch: "Branch",
   slack_post: "Post to Slack",
 };
 
 export function StepNode({ data, selected }: NodeProps) {
   const d = data as StepNodeData;
-  const cls = ["step-node", d.status ?? "", d.hasError ? "invalid" : "", selected ? "selected" : ""]
+  const isBranch = d.kind === "branch";
+  const cls = [
+    "step-node",
+    isBranch ? "branch" : "",
+    d.status ?? "",
+    d.hasError ? "invalid" : "",
+    selected ? "selected" : "",
+  ]
     .filter(Boolean)
     .join(" ");
+
   return (
     <div className={cls}>
       {d.kind !== "trigger" && <Handle type="target" position={Position.Left} />}
@@ -30,7 +39,27 @@ export function StepNode({ data, selected }: NodeProps) {
         {d.hasError && <span className="node-err" title="Has configuration errors">!</span>}
       </div>
       <div className="label">{d.label}</div>
-      <Handle type="source" position={Position.Right} />
+
+      {isBranch ? (
+        <>
+          <Handle
+            id="true"
+            type="source"
+            position={Position.Right}
+            style={{ top: "35%" }}
+          />
+          <span className="branch-tag t">true</span>
+          <Handle
+            id="false"
+            type="source"
+            position={Position.Right}
+            style={{ top: "70%" }}
+          />
+          <span className="branch-tag f">false</span>
+        </>
+      ) : (
+        <Handle type="source" position={Position.Right} />
+      )}
     </div>
   );
 }

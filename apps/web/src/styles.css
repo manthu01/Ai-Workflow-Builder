@@ -305,3 +305,17 @@ textarea {
   font-size: 10px;
 }
 .step-node .react-flow__handle { background: var(--accent); width: 8px; height: 8px; }
+.step-node.branch { border-style: dashed; }
+.step-node.branch .react-flow__handle#true { background: var(--ok); }
+.step-node.branch .react-flow__handle#false { background: var(--fail); }
+.branch-tag {
+  position: absolute;
+  right: -6px;
+  font-size: 9px;
+  color: var(--muted);
+  transform: translateX(100%);
+  padding-left: 4px;
+}
+.branch-tag.t { top: calc(35% - 6px); }
+.branch-tag.f { top: calc(70% - 6px); }
+.react-flow__edge-text { fill: var(--muted); font-size: 9px; }

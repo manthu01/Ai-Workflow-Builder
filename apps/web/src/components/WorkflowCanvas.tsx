@@ -74,7 +74,12 @@ function Flow() {
         id: e.id,
         source: e.source,
         target: e.target,
+        sourceHandle: e.sourceHandle || undefined,
+        label: e.sourceHandle || undefined,
         animated: statusByNode.get(e.target) === "succeeded",
+        style: e.sourceHandle
+          ? { stroke: e.sourceHandle === "true" ? "var(--ok)" : "var(--fail)" }
+          : undefined,
       })),
     [workflow, statusByNode],
   );
@@ -130,7 +135,9 @@ function Flow() {
 
   const onConnect = useCallback(
     (conn: Connection) => {
-      if (conn.source && conn.target) connect(conn.source, conn.target);
+      if (conn.source && conn.target) {
+        connect(conn.source, conn.target, conn.sourceHandle ?? "");
+      }
     },
     [connect],
   );

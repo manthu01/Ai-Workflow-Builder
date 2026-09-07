@@ -119,6 +119,19 @@ the stored result.
   `{ scheduledFor, cron }` payload. Pause / resume / delete from the Deploy panel,
   with cron presets and the browser's timezone.
 
+## Expansion #4 — conditional branching & parallel paths (done)
+
+The engine is no longer linear:
+
+- Every node whose inputs are ready runs **in parallel** (each is its own
+  Temporal activity), so independent steps fan out.
+- A **`branch` node** evaluates a JS condition; its outgoing edges carry a
+  `"true"` / `"false"` handle and only the taken side stays live. The other
+  side's descendants are skipped, and skips propagate.
+- Merge nodes use an **OR-join** — they run as soon as any one live path
+  reaches them, with the merged outputs of whichever upstreams completed.
+
 ## Roadmap
 
-The blueprint's four core phases are implemented. Next: the "Expansion" feature list.
+Core phases done. Expansion so far: #4 branching/parallel. Next: #1 Human-in-the-Loop
+approvals, #5 version control & rollbacks.

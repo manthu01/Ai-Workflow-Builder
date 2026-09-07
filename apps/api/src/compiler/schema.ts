@@ -26,6 +26,8 @@ export const CompilerGraphSchema = z.object({
       id: z.string(),
       source: z.string(),
       target: z.string(),
+      /** "true" or "false" for edges leaving a branch node; "" otherwise. */
+      sourceHandle: z.string().default(""),
     }),
   ),
 });
@@ -63,11 +65,15 @@ export const COMPILER_JSON_SCHEMA = {
       items: {
         type: "object",
         additionalProperties: false,
-        required: ["id", "source", "target"],
+        required: ["id", "source", "target", "sourceHandle"],
         properties: {
           id: { type: "string" },
           source: { type: "string" },
           target: { type: "string" },
+          sourceHandle: {
+            type: "string",
+            description: '"true" or "false" for edges out of a branch node, else ""',
+          },
         },
       },
     },

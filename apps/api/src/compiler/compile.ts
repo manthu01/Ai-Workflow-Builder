@@ -56,7 +56,12 @@ function toWorkflowGraph(draft: CompilerGraph): WorkflowGraph {
       config: n.config,
       position: { x: 0, y: 0 },
     })),
-    edges: draft.edges,
+    edges: draft.edges.map((e) => ({
+      id: e.id,
+      source: e.source,
+      target: e.target,
+      sourceHandle: e.sourceHandle ?? "",
+    })),
   });
 }
 

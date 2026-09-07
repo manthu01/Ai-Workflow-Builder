@@ -3,6 +3,7 @@ export type NodeKind =
   | "llm"
   | "http_request"
   | "transform"
+  | "branch"
   | "slack_post";
 
 export interface WorkflowNode {
@@ -17,6 +18,7 @@ export interface WorkflowEdge {
   id: string;
   source: string;
   target: string;
+  sourceHandle?: string;
 }
 
 export interface WorkflowGraph {
