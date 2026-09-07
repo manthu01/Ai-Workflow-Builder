@@ -8,6 +8,7 @@ export interface ExecuteNodeParams {
   dryRunLlm: "mock" | "live";
   /** All upstream node outputs produced so far, keyed by node id. */
   outputs: Record<string, unknown>;
+  triggerPayload?: unknown;
 }
 
 export interface ExecuteNodeOutput {
@@ -30,6 +31,7 @@ export async function executeNode(params: ExecuteNodeParams): Promise<ExecuteNod
     mode: params.mode,
     dryRunLlm: params.dryRunLlm,
     outputs: params.outputs,
+    triggerPayload: params.triggerPayload,
   };
 
   const startedAt = new Date().toISOString();

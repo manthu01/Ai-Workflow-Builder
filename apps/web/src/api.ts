@@ -1,4 +1,7 @@
 import type {
+  Connection,
+  ConnectionKind,
+  Deployment,
   GraphIssue,
   NodeCatalogEntry,
   RunResult,
@@ -62,5 +65,43 @@ export const api = {
     request<{ run: { id: string; status: string; mode: string }; result: RunResult }>(
       `/api/workflows/${id}/runs`,
       { method: "POST", body: JSON.stringify({ mode }) },
+    ),
+
+  listConnections: () => request<{ connections: Connection[] }>("/api/connections"),
+
+  createConnection: (body: {
+    name: string;
+    kind: ConnectionKind;
+    secret: Record<string, string>;
+  }) =>
+    request<{ connection: Connection }>("/api/connections", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  deleteConnection: (id: string) =>
+    request<unknown>(`/api/connections/${id}`, { method: "DELETE" }),
+
+  deploy: (workflowId: string) =>
+    request<{ deployment: Deployment }>(`/api/workflows/${workflowId}/deploy`, {
+      method: "POST",
+    }),
+
+  listDeployments: (workflowId: string) =>
+    request<{ deployments: Deployment[] }>(`/api/workflows/${workflowId}/deployments`),
+
+  setDeploymentStatus: (id: string, action: "pause" | "resume") =>
+    request<{ deployment: Deployment }>(`/api/deployments/${id}/${action}`, {
+      method: "POST",
+    }),
+
+  deleteDeployment: (id: string) =>
+    request<unknown>(`/api/deployments/${id}`, { method: "DELETE" }),
+
+  fireHook: (url: string, payload: unknown) =>
+    // Use the dev proxy path rather than the absolute PUBLIC_URL.
+    request<{ runId: string; status: string; result: RunResult }>(
+      url.replace(/^https?:\/\/[^/]+/, ""),
+      { method: "POST", body: JSON.stringify(payload) },
     ),
 };

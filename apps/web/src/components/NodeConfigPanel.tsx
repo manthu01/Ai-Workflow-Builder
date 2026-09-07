@@ -1,15 +1,17 @@
 import { useApp } from "../store";
-import type { NodeFieldSpec } from "../types";
+import type { Connection, NodeFieldSpec } from "../types";
 
 function Field({
   spec,
   value,
   invalid,
+  connections,
   onChange,
 }: {
   spec: NodeFieldSpec;
   value: string;
   invalid: boolean;
+  connections: Connection[];
   onChange: (v: string) => void;
 }) {
   const common = {
@@ -17,10 +19,25 @@ function Field({
     onChange: (e: { target: { value: string } }) => onChange(e.target.value),
     style: invalid ? { borderColor: "var(--fail)" } : undefined,
   };
+  const matching = connections.filter((c) => c.kind === spec.connectionKind);
   return (
     <label className="cfg-field">
-      <span className="cfg-label">{spec.label}</span>
-      {spec.widget === "select" ? (
+      <span className="cfg-label">
+        {spec.label}
+        {spec.optional && <span className="cfg-optional"> (optional)</span>}
+      </span>
+      {spec.widget === "connection" ? (
+        <select {...common}>
+          <option value="">
+            {matching.length ? "— none —" : "no connections yet"}
+          </option>
+          {matching.map((c) => (
+            <option key={c.id} value={c.id}>
+              {c.name}
+            </option>
+          ))}
+        </select>
+      ) : spec.widget === "select" ? (
         <select {...common}>
           {spec.options?.map((o) => (
             <option key={o} value={o}>
@@ -48,6 +65,7 @@ export function NodeConfigPanel() {
   const selectedId = useApp((s) => s.selectedNodeId);
   const catalog = useApp((s) => s.catalog);
   const issues = useApp((s) => s.issues);
+  const connections = useApp((s) => s.connections);
   const updateNode = useApp((s) => s.updateNode);
   const deleteNode = useApp((s) => s.deleteNode);
 
@@ -94,6 +112,7 @@ export function NodeConfigPanel() {
           spec={spec}
           value={node.config[spec.key] ?? ""}
           invalid={invalidKeys.has(spec.key)}
+          connections={connections}
           onChange={(v) => updateNode(node.id, { config: { [spec.key]: v } })}
         />
       ))}

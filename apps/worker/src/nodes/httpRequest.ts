@@ -1,10 +1,14 @@
 import { HttpRequestConfig, renderString, parseJsonObject } from "@awb/core";
+import { resolveConnection } from "../connections.js";
 import type { NodeExecutor } from "./types.js";
 
 export const runHttpRequest: NodeExecutor = async (node, ctx) => {
   const config = HttpRequestConfig.parse(node.config);
   const url = renderString(config.url, ctx.outputs);
-  const headers = parseJsonObject(renderString(config.headers, ctx.outputs), "http.headers") as Record<string, string>;
+  const headers = parseJsonObject(
+    renderString(config.headers, ctx.outputs),
+    "http.headers",
+  ) as Record<string, string>;
   const bodyObj = parseJsonObject(renderString(config.body, ctx.outputs), "http.body");
   const hasBody = config.method !== "GET" && Object.keys(bodyObj).length > 0;
 
@@ -20,6 +24,14 @@ export const runHttpRequest: NodeExecutor = async (node, ctx) => {
     };
   }
 
+  const logs: string[] = [];
+  if (config.connectionId) {
+    const conn = await resolveConnection(config.connectionId);
+    if (conn.kind !== "http_header") throw new Error("connection is not an HTTP header connection");
+    headers[conn.secret.headerName] = conn.secret.headerValue;
+    logs.push(`injected "${conn.secret.headerName}" from stored connection`);
+  }
+
   const res = await fetch(url, {
     method: config.method,
     headers: { ...headers, ...(hasBody ? { "content-type": "application/json" } : {}) },
@@ -32,6 +44,6 @@ export const runHttpRequest: NodeExecutor = async (node, ctx) => {
 
   return {
     output: { status: res.status, ok: res.ok, url, body: payload },
-    logs: [`${config.method} ${url} -> ${res.status}`],
+    logs: [...logs, `${config.method} ${url} -> ${res.status}`],
   };
 };

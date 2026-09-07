@@ -11,6 +11,7 @@ export function Toolbar() {
   const running = useApp((s) => s.running);
   const saving = useApp((s) => s.saving);
   const issues = useApp((s) => s.issues);
+  const setConnectionsOpen = useApp((s) => s.setConnectionsOpen);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const errors = issues.filter((i) => i.level === "error").length;
@@ -43,6 +44,7 @@ export function Toolbar() {
       <button disabled={disabled} onClick={() => void relayout()}>
         Auto-layout
       </button>
+      <button onClick={() => setConnectionsOpen(true)}>Connections</button>
 
       <span className="save-state">
         {saving ? "Saving…" : workflow ? "Saved" : ""}

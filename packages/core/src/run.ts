@@ -14,6 +14,11 @@ export interface WorkflowExecutionInput {
   mode: "dry" | "live";
   graph: WorkflowGraph;
   dryRunLlm: "mock" | "live";
+  /**
+   * For deployment/webhook runs: the real event body, used as the trigger
+   * node's output instead of its configured sample payload.
+   */
+  triggerPayload?: unknown;
 }
 
 export const NodeRunStatus = z.enum([

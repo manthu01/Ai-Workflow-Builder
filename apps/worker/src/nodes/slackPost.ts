@@ -1,5 +1,6 @@
 import { SlackPostConfig, renderString } from "@awb/core";
 import { env } from "../env.js";
+import { resolveConnection } from "../connections.js";
 import type { NodeExecutor } from "./types.js";
 
 export const runSlackPost: NodeExecutor = async (node, ctx) => {
@@ -14,14 +15,22 @@ export const runSlackPost: NodeExecutor = async (node, ctx) => {
     };
   }
 
-  if (!env.SLACK_BOT_TOKEN) {
-    throw new Error("slack_post live run needs SLACK_BOT_TOKEN");
+  let botToken = env.SLACK_BOT_TOKEN;
+  const logs: string[] = [];
+  if (config.connectionId) {
+    const conn = await resolveConnection(config.connectionId);
+    if (conn.kind !== "slack") throw new Error("connection is not a Slack connection");
+    botToken = conn.secret.botToken;
+    logs.push("using stored Slack connection");
+  }
+  if (!botToken) {
+    throw new Error("slack_post live run needs a Slack connection or SLACK_BOT_TOKEN");
   }
 
   const res = await fetch("https://slack.com/api/chat.postMessage", {
     method: "POST",
     headers: {
-      authorization: `Bearer ${env.SLACK_BOT_TOKEN}`,
+      authorization: `Bearer ${botToken}`,
       "content-type": "application/json; charset=utf-8",
     },
     body: JSON.stringify({ channel, text }),
@@ -31,6 +40,6 @@ export const runSlackPost: NodeExecutor = async (node, ctx) => {
 
   return {
     output: { delivered: true, channel, ts: data.ts },
-    logs: [`posted to ${channel} (ts ${data.ts})`],
+    logs: [...logs, `posted to ${channel} (ts ${data.ts})`],
   };
 };

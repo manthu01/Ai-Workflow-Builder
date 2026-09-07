@@ -4,15 +4,18 @@ import { ChatPanel } from "./components/ChatPanel";
 import { Toolbar } from "./components/Toolbar";
 import { WorkflowCanvas } from "./components/WorkflowCanvas";
 import { RightPanel } from "./components/RightPanel";
+import { ConnectionsModal } from "./components/ConnectionsModal";
 
 export function App() {
   const workflow = useApp((s) => s.workflow);
   const error = useApp((s) => s.error);
   const loadCatalog = useApp((s) => s.loadCatalog);
+  const loadConnections = useApp((s) => s.loadConnections);
 
   useEffect(() => {
     void loadCatalog();
-  }, [loadCatalog]);
+    void loadConnections();
+  }, [loadCatalog, loadConnections]);
 
   return (
     <div className="app">
@@ -35,6 +38,7 @@ export function App() {
         </div>
         <RightPanel />
       </div>
+      <ConnectionsModal />
     </div>
   );
 }

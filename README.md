@@ -63,7 +63,7 @@ Prereqs: Node 20+, Docker Desktop.
 
 ```bash
 npm install
-cp .env.example .env          # then add ANTHROPIC_API_KEY if you want the real compiler
+cp .env.example .env          # add ANTHROPIC_API_KEY for the real compiler; set SECRET_KEY for prod
 npm run infra:up              # Postgres + Temporal (Temporal UI: http://localhost:8233)
 npm run db:push               # create tables
 npm run dev                   # core (watch) + api :8787 + worker + web :5173
@@ -83,10 +83,22 @@ npm run db:studio             # Drizzle Studio
 npm run infra:down            # stop containers
 ```
 
+## Milestone 3 — Secure Hub + Agent Deployment (done)
+
+- **Secure Hub** — a credential vault (`connections`). Secrets are AES-256-GCM
+  encrypted at rest, decrypted only inside the execution engine (the worker
+  fetches them over a token-gated internal endpoint at activity time), and never
+  returned to the browser or embedded in a graph. `slack_post` and `http_request`
+  nodes can reference a connection; there's a Connections manager in the UI.
+- **Agent Deployment** — "Deploy" compiles the current graph into a live webhook
+  listener at `POST /api/hooks/<token>`. The graph is snapshotted at deploy time.
+  Posting a JSON body starts a **live** run with that body as the trigger payload;
+  deployments can be paused, deleted, and test-fired from the Deploy panel.
+- Failed-node errors now surface the real cause instead of Temporal's wrapper.
+
 ## Roadmap (next milestones)
 
 - Live run progress streaming (Temporal signals/queries → WebSocket) for a real-time debugger
-- Secret vault for `http_request` / `slack_post` credentials (Phase 3 "Secure Hub")
-- Real trigger sources (webhook listener) and deploy step (Phase 4 "Agent Deployment")
 - Model routing by task complexity (Phase 2)
+- Scheduled triggers (cron) alongside webhooks
 - Then the blueprint's Expansion features

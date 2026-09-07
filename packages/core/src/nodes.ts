@@ -41,6 +41,8 @@ export const HttpRequestConfig = z.object({
   headers: z.string().default("{}"),
   /** JSON object (string-encoded) request body for non-GET requests. Templated. */
   body: z.string().default("{}"),
+  /** Optional connection id (kind "http_header") to inject an auth header on live runs. */
+  connectionId: z.string().default(""),
 });
 
 export const TransformConfig = z.object({
@@ -56,6 +58,8 @@ export const SlackPostConfig = z.object({
   channel: z.string().min(1),
   /** Message body. Templated. */
   text: z.string().min(1),
+  /** Optional connection id (kind "slack") holding the bot token for live runs. */
+  connectionId: z.string().default(""),
 });
 
 export const NODE_CONFIG_SCHEMAS = {
@@ -74,11 +78,14 @@ export type NodeConfigFor<K extends NodeKind> = z.infer<
 export interface NodeFieldSpec {
   key: string;
   label: string;
-  widget: "text" | "textarea" | "select" | "json";
+  widget: "text" | "textarea" | "select" | "json" | "connection";
   options?: string[];
+  /** For widget "connection": which connection kind to offer. */
+  connectionKind?: "slack" | "http_header";
   placeholder?: string;
   help?: string;
   default: string;
+  optional?: boolean;
 }
 
 export interface NodeCatalogEntry {
@@ -169,6 +176,15 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
       { key: "url", label: "URL", widget: "text", default: "", placeholder: "https://api.example.com/things" },
       { key: "headers", label: "Headers (JSON)", widget: "json", default: "{}" },
       { key: "body", label: "Body (JSON)", widget: "json", default: "{}" },
+      {
+        key: "connectionId",
+        label: "Auth connection",
+        widget: "connection",
+        connectionKind: "http_header",
+        default: "",
+        optional: true,
+        help: "Injects a stored auth header on live runs.",
+      },
     ],
   },
   transform: {
@@ -201,6 +217,15 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
     fields: [
       { key: "channel", label: "Channel", widget: "text", default: "#general", placeholder: "#eng" },
       { key: "text", label: "Message", widget: "textarea", default: "", placeholder: "{{ summarize.text }}" },
+      {
+        key: "connectionId",
+        label: "Slack connection",
+        widget: "connection",
+        connectionKind: "slack",
+        default: "",
+        optional: true,
+        help: "Bot token used on live runs. Falls back to SLACK_BOT_TOKEN if unset.",
+      },
     ],
   },
 };

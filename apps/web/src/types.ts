@@ -45,11 +45,32 @@ export interface GraphIssue {
 export interface NodeFieldSpec {
   key: string;
   label: string;
-  widget: "text" | "textarea" | "select" | "json";
+  widget: "text" | "textarea" | "select" | "json" | "connection";
   options?: string[];
+  connectionKind?: "slack" | "http_header";
   placeholder?: string;
   help?: string;
   default: string;
+  optional?: boolean;
+}
+
+export type ConnectionKind = "slack" | "http_header";
+
+export interface Connection {
+  id: string;
+  name: string;
+  kind: ConnectionKind;
+  createdAt: string;
+}
+
+export interface Deployment {
+  id: string;
+  workflowId: string;
+  status: "active" | "paused";
+  url: string;
+  fireCount: number;
+  lastFiredAt: string | null;
+  createdAt: string;
 }
 
 export interface NodeCatalogEntry {

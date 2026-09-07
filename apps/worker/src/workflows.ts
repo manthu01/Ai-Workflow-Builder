@@ -8,6 +8,22 @@ import {
 } from "@awb/core";
 import type * as activities from "./activities.js";
 
+/** Temporal wraps activity errors; walk the cause chain for the real message. */
+function rootMessage(err: unknown): string {
+  let cur: unknown = err;
+  let msg = err instanceof Error ? err.message : String(err);
+  const seen = new Set<unknown>();
+  while (cur && typeof cur === "object" && !seen.has(cur)) {
+    seen.add(cur);
+    const e = cur as { message?: string; cause?: unknown };
+    if (typeof e.message === "string" && e.message && e.message !== "Activity task failed") {
+      msg = e.message;
+    }
+    cur = e.cause;
+  }
+  return msg;
+}
+
 const { executeNode } = proxyActivities<typeof activities>({
   startToCloseTimeout: "2 minutes",
   retry: {
@@ -60,6 +76,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
         mode,
         dryRunLlm: input.dryRunLlm,
         outputs,
+        triggerPayload: input.triggerPayload,
       });
       outputs[nodeId] = res.output;
       nodeResults.push({
@@ -79,7 +96,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
         nodeId,
         status: "failed",
         input: inputSlice,
-        error: err instanceof Error ? err.message : String(err),
+        error: rootMessage(err),
         logs: [],
         attempts: 3,
         finishedAt: new Date().toISOString(),

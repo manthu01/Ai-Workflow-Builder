@@ -11,6 +11,12 @@ const EnvSchema = z.object({
   ANTHROPIC_API_KEY: z.string().optional(),
   COMPILER_MODEL: z.string().default("claude-sonnet-5"),
   DRY_RUN_LLM: z.enum(["mock", "live"]).default("mock"),
+  /** Key for the credential vault. Any string works; use 32 random bytes in prod. */
+  SECRET_KEY: z.string().default("dev-insecure-secret-key-change-me"),
+  /** Shared token the worker uses to resolve connection secrets from the API. */
+  INTERNAL_TOKEN: z.string().default("dev-internal-token"),
+  /** Public base URL for webhook listener URLs shown in the UI. */
+  PUBLIC_URL: z.string().default("http://localhost:8787"),
 });
 
 export const env = EnvSchema.parse(process.env);

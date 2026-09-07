@@ -1,6 +1,9 @@
 import { create } from "zustand";
 import { api } from "./api";
 import type {
+  Connection,
+  ConnectionKind,
+  Deployment,
   GraphIssue,
   NodeCatalogEntry,
   NodeKind,
@@ -22,6 +25,10 @@ interface AppState {
   issues: GraphIssue[];
   run: RunResult | null;
   selectedNodeId: string | null;
+  connections: Connection[];
+  deployments: Deployment[];
+  connectionsOpen: boolean;
+  setConnectionsOpen: (open: boolean) => void;
   compiling: boolean;
   running: boolean;
   saving: boolean;
@@ -31,6 +38,20 @@ interface AppState {
   compile: (prompt: string) => Promise<void>;
   doRun: (mode: "dry" | "live") => Promise<void>;
   selectNode: (id: string | null) => void;
+
+  loadConnections: () => Promise<void>;
+  createConnection: (body: {
+    name: string;
+    kind: ConnectionKind;
+    secret: Record<string, string>;
+  }) => Promise<void>;
+  removeConnection: (id: string) => Promise<void>;
+
+  loadDeployments: () => Promise<void>;
+  deploy: () => Promise<void>;
+  setDeploymentStatus: (id: string, action: "pause" | "resume") => Promise<void>;
+  removeDeployment: (id: string) => Promise<void>;
+  fireHook: (url: string, payload: unknown) => Promise<void>;
 
   setGraph: (graph: WorkflowGraph) => void;
   updateNode: (id: string, patch: Partial<Pick<WorkflowNode, "label" | "config">>) => void;
@@ -64,6 +85,10 @@ export const useApp = create<AppState>((set, get) => {
     issues: [],
     run: null,
     selectedNodeId: null,
+    connections: [],
+    deployments: [],
+    connectionsOpen: false,
+    setConnectionsOpen: (open) => set({ connectionsOpen: open }),
     compiling: false,
     running: false,
     saving: false,
@@ -214,6 +239,108 @@ export const useApp = create<AppState>((set, get) => {
         set({ workflow: res.workflow, issues: res.issues });
       } catch (err) {
         set({ error: (err as Error).message });
+      }
+    },
+
+    loadConnections: async () => {
+      try {
+        const res = await api.listConnections();
+        set({ connections: res.connections });
+      } catch {
+        /* non-fatal */
+      }
+    },
+
+    createConnection: async (body) => {
+      try {
+        await api.createConnection(body);
+        await get().loadConnections();
+      } catch (err) {
+        set({ error: (err as Error).message });
+        throw err;
+      }
+    },
+
+    removeConnection: async (id) => {
+      try {
+        await api.deleteConnection(id);
+        set((s) => ({ connections: s.connections.filter((c) => c.id !== id) }));
+      } catch (err) {
+        set({ error: (err as Error).message });
+      }
+    },
+
+    loadDeployments: async () => {
+      const wf = get().workflow;
+      if (!wf) return set({ deployments: [] });
+      try {
+        const res = await api.listDeployments(wf.id);
+        set({ deployments: res.deployments });
+      } catch {
+        /* non-fatal */
+      }
+    },
+
+    deploy: async () => {
+      const wf = get().workflow;
+      if (!wf) return;
+      if (persistTimer) {
+        clearTimeout(persistTimer);
+        await get().persistNow();
+      }
+      try {
+        const res = await api.deploy(wf.id);
+        set((s) => ({
+          deployments: [res.deployment, ...s.deployments],
+          chat: [
+            ...s.chat,
+            { role: "system", text: `Deployed. Webhook: ${res.deployment.url}` },
+          ],
+        }));
+      } catch (err) {
+        set({ error: (err as Error).message });
+      }
+    },
+
+    setDeploymentStatus: async (id, action) => {
+      try {
+        const res = await api.setDeploymentStatus(id, action);
+        set((s) => ({
+          deployments: s.deployments.map((d) => (d.id === id ? res.deployment : d)),
+        }));
+      } catch (err) {
+        set({ error: (err as Error).message });
+      }
+    },
+
+    removeDeployment: async (id) => {
+      try {
+        await api.deleteDeployment(id);
+        set((s) => ({ deployments: s.deployments.filter((d) => d.id !== id) }));
+      } catch (err) {
+        set({ error: (err as Error).message });
+      }
+    },
+
+    fireHook: async (url, payload) => {
+      set({ running: true, error: null, run: null });
+      try {
+        const { result } = await api.fireHook(url, payload);
+        const ok = result.nodes.filter((n) => n.status === "succeeded").length;
+        set((s) => ({
+          run: result,
+          running: false,
+          chat: [
+            ...s.chat,
+            {
+              role: "system",
+              text: `Webhook fired - live run ${result.status} (${ok}/${result.nodes.length} nodes ok).`,
+            },
+          ],
+        }));
+        await get().loadDeployments();
+      } catch (err) {
+        set({ running: false, error: (err as Error).message });
       }
     },
 
