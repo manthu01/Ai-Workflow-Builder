@@ -42,6 +42,26 @@ export interface GraphIssue {
   message: string;
 }
 
+export interface NodeFieldSpec {
+  key: string;
+  label: string;
+  widget: "text" | "textarea" | "select" | "json";
+  options?: string[];
+  placeholder?: string;
+  help?: string;
+  default: string;
+}
+
+export interface NodeCatalogEntry {
+  kind: NodeKind;
+  title: string;
+  description: string;
+  isTrigger: boolean;
+  hasSideEffects: boolean;
+  configFields: string;
+  fields: NodeFieldSpec[];
+}
+
 export type NodeRunStatus =
   | "pending"
   | "running"

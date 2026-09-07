@@ -1,4 +1,10 @@
-import type { GraphIssue, RunResult, WorkflowGraph, WorkflowRecord } from "./types";
+import type {
+  GraphIssue,
+  NodeCatalogEntry,
+  RunResult,
+  WorkflowGraph,
+  WorkflowRecord,
+} from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
@@ -26,6 +32,8 @@ export interface CompileResponse {
 }
 
 export const api = {
+  nodeCatalog: () => request<{ nodes: NodeCatalogEntry[] }>("/api/node-catalog"),
+
   compile: (prompt: string) =>
     request<CompileResponse>("/api/workflows/compile", {
       method: "POST",
@@ -43,6 +51,12 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ graph }),
     }),
+
+  relayout: (id: string, graph: WorkflowGraph) =>
+    request<{ workflow: WorkflowRecord; issues: GraphIssue[] }>(
+      `/api/workflows/${id}/relayout`,
+      { method: "POST", body: JSON.stringify({ graph }) },
+    ),
 
   run: (id: string, mode: "dry" | "live") =>
     request<{ run: { id: string; status: string; mode: string }; result: RunResult }>(

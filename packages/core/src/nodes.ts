@@ -70,6 +70,17 @@ export type NodeConfigFor<K extends NodeKind> = z.infer<
   (typeof NODE_CONFIG_SCHEMAS)[K]
 >;
 
+/** How the canvas should render an editor for one config field. */
+export interface NodeFieldSpec {
+  key: string;
+  label: string;
+  widget: "text" | "textarea" | "select" | "json";
+  options?: string[];
+  placeholder?: string;
+  help?: string;
+  default: string;
+}
+
 export interface NodeCatalogEntry {
   kind: NodeKind;
   title: string;
@@ -80,6 +91,8 @@ export interface NodeCatalogEntry {
   hasSideEffects: boolean;
   /** Human-readable summary of the config fields for the compiler prompt. */
   configFields: string;
+  /** Structured field list the canvas uses to build the config form. */
+  fields: NodeFieldSpec[];
 }
 
 export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
@@ -92,6 +105,22 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
     hasSideEffects: false,
     configFields:
       'event: "webhook" | "manual" | "schedule"; samplePayload: string (JSON object literal used as example input for dry runs)',
+    fields: [
+      {
+        key: "event",
+        label: "Event",
+        widget: "select",
+        options: ["webhook", "manual", "schedule"],
+        default: "manual",
+      },
+      {
+        key: "samplePayload",
+        label: "Sample payload (JSON)",
+        widget: "json",
+        default: "{}",
+        help: "Fed into the graph as this node's output during dry runs.",
+      },
+    ],
   },
   llm: {
     kind: "llm",
@@ -102,6 +131,23 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
     hasSideEffects: false,
     configFields:
       'prompt: string (supports {{ node_id.field }} templates); output: "text" | "json"',
+    fields: [
+      {
+        key: "prompt",
+        label: "Prompt",
+        widget: "textarea",
+        default: "",
+        placeholder: "Summarize {{ trigger.message }} in one sentence.",
+        help: "Use {{ node_id.field }} to reference upstream output.",
+      },
+      {
+        key: "output",
+        label: "Output",
+        widget: "select",
+        options: ["text", "json"],
+        default: "text",
+      },
+    ],
   },
   http_request: {
     kind: "http_request",
@@ -111,7 +157,19 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
     isTrigger: false,
     hasSideEffects: true,
     configFields:
-      'method: GET|POST|PUT|PATCH|DELETE; url: string; headers: string (JSON object); body: string (JSON object). All templated.',
+      "method: GET|POST|PUT|PATCH|DELETE; url: string; headers: string (JSON object); body: string (JSON object). All templated.",
+    fields: [
+      {
+        key: "method",
+        label: "Method",
+        widget: "select",
+        options: ["GET", "POST", "PUT", "PATCH", "DELETE"],
+        default: "GET",
+      },
+      { key: "url", label: "URL", widget: "text", default: "", placeholder: "https://api.example.com/things" },
+      { key: "headers", label: "Headers (JSON)", widget: "json", default: "{}" },
+      { key: "body", label: "Body (JSON)", widget: "json", default: "{}" },
+    ],
   },
   transform: {
     kind: "transform",
@@ -122,6 +180,16 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
     hasSideEffects: false,
     configFields:
       "expression: string (one JS expression; `input` is bound to the merged upstream outputs)",
+    fields: [
+      {
+        key: "expression",
+        label: "Expression",
+        widget: "textarea",
+        default: "input",
+        placeholder: "{ title: input.trigger.pull_request.title }",
+        help: "One JS expression. `input` is the merged upstream outputs.",
+      },
+    ],
   },
   slack_post: {
     kind: "slack_post",
@@ -130,5 +198,16 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
     isTrigger: false,
     hasSideEffects: true,
     configFields: "channel: string; text: string. Both templated.",
+    fields: [
+      { key: "channel", label: "Channel", widget: "text", default: "#general", placeholder: "#eng" },
+      { key: "text", label: "Message", widget: "textarea", default: "", placeholder: "{{ summarize.text }}" },
+    ],
   },
 };
+
+/** Default config object for a node kind, from its field specs. */
+export function defaultNodeConfig(kind: NodeKind): Record<string, string> {
+  const config: Record<string, string> = {};
+  for (const f of NODE_CATALOG[kind].fields) config[f.key] = f.default;
+  return config;
+}

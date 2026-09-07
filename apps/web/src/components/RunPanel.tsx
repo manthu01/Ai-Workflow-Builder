@@ -36,55 +36,38 @@ export function RunPanel() {
   const workflow = useApp((s) => s.workflow);
   const run = useApp((s) => s.run);
   const running = useApp((s) => s.running);
-  const doRun = useApp((s) => s.doRun);
   const issues = useApp((s) => s.issues);
 
-  const blockingErrors = issues.filter((i) => i.level === "error");
-
   return (
-    <div className="runpanel">
-      <div className="runpanel-head">
-        <button
-          className="primary"
-          disabled={!workflow || running || blockingErrors.length > 0}
-          onClick={() => void doRun("dry")}
-        >
-          {running ? "Running…" : "Dry run"}
-        </button>
-        <button
-          disabled={!workflow || running || blockingErrors.length > 0}
-          onClick={() => void doRun("live")}
-        >
-          Live run
-        </button>
-        {run && (
-          <span className={`badge`} style={{ marginLeft: "auto" }}>
+    <div className="runpanel-inner">
+      {run && (
+        <div className="run-summary">
+          <span className={`badge`}>
             {run.mode} · {run.status}
           </span>
-        )}
-      </div>
-      <div className="runpanel-body">
-        {issues.map((iss, i) => (
-          <div
-            key={i}
-            className="chat-entry system"
-            style={{ color: iss.level === "error" ? "var(--fail)" : "var(--warn)" }}
-          >
-            {iss.level}: {iss.nodeId ? `[${iss.nodeId}] ` : ""}
-            {iss.message}
-          </div>
-        ))}
-        {!run && !running && (
-          <div className="empty">
-            {workflow
-              ? "Dry run executes every node with mock data — no external calls."
-              : "Compile a workflow first."}
-          </div>
-        )}
-        {run?.nodes.map((n) => (
-          <NodeRunCard key={n.nodeId} node={n} />
-        ))}
-      </div>
+        </div>
+      )}
+      {issues.map((iss, i) => (
+        <div
+          key={i}
+          className="issue-line"
+          style={{ color: iss.level === "error" ? "var(--fail)" : "var(--warn)" }}
+        >
+          {iss.level}: {iss.nodeId ? `[${iss.nodeId}] ` : ""}
+          {iss.message}
+        </div>
+      ))}
+      {!run && !running && (
+        <div className="empty">
+          {workflow
+            ? "Dry run executes every node with mock data — no external calls."
+            : "Compile a workflow first."}
+        </div>
+      )}
+      {running && <div className="empty">Running…</div>}
+      {run?.nodes.map((n) => (
+        <NodeRunCard key={n.nodeId} node={n} />
+      ))}
     </div>
   );
 }

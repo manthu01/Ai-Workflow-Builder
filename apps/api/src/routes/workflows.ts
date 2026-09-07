@@ -85,9 +85,8 @@ workflowRoutes.put("/:id", async (c) => {
     .where(eq(schema.workflows.id, id));
   if (!existing) return c.json({ error: "not found" }, 404);
 
-  const graph = parsed.data.graph
-    ? autoLayoutSafe(parsed.data.graph)
-    : existing.graph;
+  // Positions are preserved as sent - the canvas owns layout while editing.
+  const graph = parsed.data.graph ?? existing.graph;
 
   const [row] = await db
     .update(schema.workflows)
@@ -97,6 +96,28 @@ workflowRoutes.put("/:id", async (c) => {
       graph,
       updatedAt: new Date(),
     })
+    .where(eq(schema.workflows.id, id))
+    .returning();
+
+  return c.json({ workflow: row, issues: validateGraph(row!.graph) });
+});
+
+/** Re-run the automatic left-to-right layered layout and save it. */
+workflowRoutes.post("/:id/relayout", async (c) => {
+  const id = c.req.param("id");
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = z.object({ graph: WorkflowGraphSchema }).safeParse(body);
+
+  const [existing] = await db
+    .select()
+    .from(schema.workflows)
+    .where(eq(schema.workflows.id, id));
+  if (!existing) return c.json({ error: "not found" }, 404);
+
+  const graph = autoLayoutSafe(parsed.success ? parsed.data.graph : existing.graph);
+  const [row] = await db
+    .update(schema.workflows)
+    .set({ graph, updatedAt: new Date() })
     .where(eq(schema.workflows.id, id))
     .returning();
 

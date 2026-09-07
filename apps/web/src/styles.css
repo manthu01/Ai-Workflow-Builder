@@ -75,17 +75,90 @@ textarea {
 .chat-input { padding: 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; }
 .chat-hint { font-size: 11px; color: var(--muted); }
 
+.center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .canvas { flex: 1; position: relative; }
 
-.runpanel {
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+.toolbar .spacer { flex: 1; }
+.toolbar .save-state { font-size: 11px; color: var(--muted); }
+
+.menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  z-index: 20;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  width: 280px;
+  padding: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+.menu-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: transparent;
+  padding: 8px;
+  border-radius: 6px;
+}
+.menu-item span { font-size: 11px; color: var(--muted); }
+.menu-item:hover { background: var(--panel-2); }
+
+.rightpanel {
   width: 380px;
   border-left: 1px solid var(--border);
   background: var(--panel);
   display: flex;
   flex-direction: column;
 }
-.runpanel-head { padding: 12px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; }
-.runpanel-body { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.tabs { display: flex; border-bottom: 1px solid var(--border); }
+.tab {
+  flex: 1;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 10px;
+  border-bottom: 2px solid transparent;
+}
+.tab.active { color: var(--text); border-bottom-color: var(--accent); }
+.rightpanel-body { flex: 1; overflow-y: auto; }
+.runpanel-inner { padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.run-summary { display: flex; }
+.issue-line { font-size: 12px; line-height: 1.4; }
+
+/* Node config form */
+.cfg { padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.cfg-head { display: flex; justify-content: space-between; align-items: flex-start; }
+.cfg-id { font-size: 11px; color: var(--muted); display: block; margin-top: 4px; }
+.cfg-field { display: flex; flex-direction: column; gap: 4px; }
+.cfg-label { font-size: 12px; color: var(--muted); }
+.cfg-help { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.cfg-field input,
+.cfg-field select,
+.cfg-field textarea {
+  font: inherit;
+  font-size: 13px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+.cfg-field textarea { resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.cfg-issues { font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
 
 .node-run { border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2); }
 .node-run summary { padding: 8px 10px; display: flex; align-items: center; gap: 8px; font-size: 13px; cursor: pointer; }
@@ -133,6 +206,20 @@ textarea {
 .step-node.succeeded { border-color: var(--ok); }
 .step-node.failed { border-color: var(--fail); }
 .step-node.skipped { border-color: var(--skip); }
-.step-node .kind { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.step-node.invalid { border-color: var(--warn); }
+.step-node.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+.step-node .kind { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .step-node .label { font-weight: 600; margin-top: 2px; }
-.step-node .react-flow__handle { background: var(--accent); }
+.step-node .node-err {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--warn);
+  color: #1c1200;
+  font-weight: 700;
+  font-size: 10px;
+}
+.step-node .react-flow__handle { background: var(--accent); width: 8px; height: 8px; }

@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import {
   ReactFlow,
   ReactFlowProvider,
   Background,
   Controls,
   MiniMap,
-  applyNodeChanges,
   useReactFlow,
   useUpdateNodeInternals,
   type Node,
   type Edge,
   type NodeChange,
+  type EdgeChange,
+  type Connection,
 } from "@xyflow/react";
 import { useApp } from "../store";
 import { StepNode } from "./StepNode";
@@ -22,9 +23,14 @@ const NODE_H = 60;
 function Flow() {
   const workflow = useApp((s) => s.workflow);
   const run = useApp((s) => s.run);
+  const issues = useApp((s) => s.issues);
+  const selectedNodeId = useApp((s) => s.selectedNodeId);
   const setGraph = useApp((s) => s.setGraph);
-  const persistGraph = useApp((s) => s.persistGraph);
-  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const persistNow = useApp((s) => s.persistNow);
+  const selectNode = useApp((s) => s.selectNode);
+  const deleteNode = useApp((s) => s.deleteNode);
+  const deleteEdge = useApp((s) => s.deleteEdge);
+  const connect = useApp((s) => s.connect);
 
   const { fitView } = useReactFlow();
   const updateNodeInternals = useUpdateNodeInternals();
@@ -35,21 +41,31 @@ function Flow() {
     return m;
   }, [run]);
 
+  const errorNodeIds = useMemo(
+    () => new Set(issues.filter((i) => i.level === "error" && i.nodeId).map((i) => i.nodeId!)),
+    [issues],
+  );
+
   const nodes: Node[] = useMemo(
     () =>
       (workflow?.graph.nodes ?? []).map((n) => ({
         id: n.id,
         type: "step",
         position: n.position,
+        selected: n.id === selectedNodeId,
         width: NODE_W,
         height: NODE_H,
-        // Some environments (notably headless/occluded tabs) never fire the
-        // ResizeObserver React Flow relies on to measure nodes, which also
-        // suppresses edge rendering. Seed `measured` so layout is deterministic.
+        // Some environments never fire the ResizeObserver React Flow uses to
+        // measure nodes, which also suppresses edges. Seed `measured`.
         measured: { width: NODE_W, height: NODE_H },
-        data: { label: n.label, kind: n.kind, status: statusByNode.get(n.id) },
+        data: {
+          label: n.label,
+          kind: n.kind,
+          status: statusByNode.get(n.id),
+          hasError: errorNodeIds.has(n.id),
+        },
       })),
-    [workflow, statusByNode],
+    [workflow, statusByNode, errorNodeIds, selectedNodeId],
   );
 
   const edges: Edge[] = useMemo(
@@ -63,43 +79,60 @@ function Flow() {
     [workflow, statusByNode],
   );
 
-  // React Flow occasionally skips its initial handle measurement in this setup;
-  // nudge it to re-measure every node whenever the graph identity changes, then
-  // frame the result.
-  const graphKey = workflow?.id ?? "none";
+  // Re-measure + reframe only when the graph's structure changes (nodes/edges
+  // added or removed), never on every position tweak or selection change.
+  const structureKey = workflow
+    ? `${workflow.id}|${workflow.graph.nodes.map((n) => n.id).join(",")}|${workflow.graph.edges.length}`
+    : "none";
   useEffect(() => {
-    if (!workflow) return;
-    const ids = workflow.graph.nodes.map((n) => n.id);
+    if (structureKey === "none") return;
+    const ids = structureKey.split("|")[1]?.split(",").filter(Boolean) ?? [];
     const raf = requestAnimationFrame(() => {
       ids.forEach((id) => updateNodeInternals(id));
       requestAnimationFrame(() => void fitView({ padding: 0.2, duration: 200 }));
     });
     return () => cancelAnimationFrame(raf);
-  }, [graphKey, workflow, updateNodeInternals, fitView]);
+  }, [structureKey, updateNodeInternals, fitView]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange[]) => {
       if (!workflow) return;
-      const next = applyNodeChanges(changes, nodes);
-      const moved = next.map((n) => {
-        const orig = workflow.graph.nodes.find((g) => g.id === n.id)!;
-        return { ...orig, position: n.position };
-      });
-      setGraph({ ...workflow.graph, nodes: moved });
-
-      if (changes.some((ch) => ch.type === "position" && ch.dragging === false)) {
-        if (persistTimer.current) clearTimeout(persistTimer.current);
-        persistTimer.current = setTimeout(() => void persistGraph(), 400);
+      let didMove = false;
+      let settled = false;
+      const byId = new Map(workflow.graph.nodes.map((n) => [n.id, n]));
+      for (const ch of changes) {
+        if (ch.type === "position" && ch.position) {
+          const n = byId.get(ch.id);
+          if (n) byId.set(ch.id, { ...n, position: ch.position });
+          didMove = true;
+          if (ch.dragging === false) settled = true;
+        } else if (ch.type === "remove") {
+          deleteNode(ch.id);
+          return;
+        }
+        // Selection is driven by onNodeClick/onPaneClick; ignoring "select"
+        // changes here avoids a feedback loop with the `selected` node prop.
+      }
+      if (didMove) {
+        setGraph({ ...workflow.graph, nodes: [...byId.values()] });
+        if (settled) void persistNow();
       }
     },
-    [workflow, nodes, setGraph, persistGraph],
+    [workflow, setGraph, persistNow, deleteNode],
   );
 
-  useEffect(
-    () => () => {
-      if (persistTimer.current) clearTimeout(persistTimer.current);
+  const onEdgesChange = useCallback(
+    (changes: EdgeChange[]) => {
+      for (const ch of changes) if (ch.type === "remove") deleteEdge(ch.id);
     },
-    [],
+    [deleteEdge],
+  );
+
+  const onConnect = useCallback(
+    (conn: Connection) => {
+      if (conn.source && conn.target) connect(conn.source, conn.target);
+    },
+    [connect],
   );
 
   if (!workflow) {
@@ -119,6 +152,10 @@ function Flow() {
       edges={edges}
       nodeTypes={nodeTypes}
       onNodesChange={onNodesChange}
+      onEdgesChange={onEdgesChange}
+      onConnect={onConnect}
+      onNodeClick={(_, n) => selectNode(n.id)}
+      onPaneClick={() => selectNode(null)}
       fitView
       colorMode="dark"
       proOptions={{ hideAttribution: true }}

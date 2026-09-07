@@ -43,6 +43,20 @@ Node kinds so far: `trigger`, `llm`, `http_request`, `transform` (sandboxed JS e
 `slack_post`. Dry runs never make external calls — HTTP is mocked, Slack is not sent, LLM
 returns a deterministic mock (`DRY_RUN_LLM=live` overrides that).
 
+## Milestone 2 — editable canvas (done)
+
+The canvas is now a real editor, not just a viewer of the AI's output:
+
+- **Inspector panel** — select any node to edit its label and typed config fields
+  (text / textarea / select / JSON), driven by a node-catalog schema from the API.
+- **Add / delete nodes** — a palette menu for every node kind; delete from the inspector
+  or with the Delete key.
+- **Connect / disconnect** — drag between handles to add edges; select + Delete to remove.
+- **Live validation** — per-node config errors surface as a marker on the node, a list in
+  the inspector, and an error count in the toolbar; runs are blocked while errors exist.
+- **Auto-layout** button, and manual node positions are now preserved on save.
+- Debounced autosave with a "Saved / Saving…" indicator.
+
 ## Setup
 
 Prereqs: Node 20+, Docker Desktop.
@@ -72,7 +86,7 @@ npm run infra:down            # stop containers
 ## Roadmap (next milestones)
 
 - Live run progress streaming (Temporal signals/queries → WebSocket) for a real-time debugger
-- Editable canvas: add/remove/reconnect nodes, per-node config forms
-- Real trigger sources (webhook listener) and deploy step (Phase 4 "Agent Deployment")
 - Secret vault for `http_request` / `slack_post` credentials (Phase 3 "Secure Hub")
+- Real trigger sources (webhook listener) and deploy step (Phase 4 "Agent Deployment")
+- Model routing by task complexity (Phase 2)
 - Then the blueprint's Expansion features
