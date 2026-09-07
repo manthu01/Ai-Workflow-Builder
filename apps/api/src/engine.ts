@@ -8,6 +8,7 @@ import { db, schema } from "./db/client.js";
 import { newId } from "./id.js";
 import { env } from "./env.js";
 import { getTemporalClient, type ExecuteWorkflowInput } from "./temporal/client.js";
+import { snapshotVersion } from "./versions.js";
 
 export interface StartRunOptions {
   workflowId: string;
@@ -34,6 +35,9 @@ export interface StartedRun {
 export async function startRun(opts: StartRunOptions): Promise<StartedRun> {
   const runId = newId("run");
   const temporalWorkflowId = `awb-${runId}`;
+
+  // Keep every executed graph reproducible (no-op if it matches the last snapshot).
+  await snapshotVersion(opts.workflowId, opts.graph, "run").catch(() => {});
 
   await db.insert(schema.runs).values({
     id: runId,

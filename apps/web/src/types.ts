@@ -88,6 +88,16 @@ export interface Schedule {
   createdAt: string;
 }
 
+export interface WorkflowVersion {
+  id: string;
+  version: number;
+  label: string | null;
+  source: "compile" | "edit" | "deploy" | "run" | "rollback";
+  nodeCount: number;
+  edgeCount: number;
+  createdAt: string;
+}
+
 export interface NodeCatalogEntry {
   kind: NodeKind;
   title: string;

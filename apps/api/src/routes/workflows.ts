@@ -9,6 +9,7 @@ import {
 import { db, schema } from "../db/client.js";
 import { newId } from "../id.js";
 import { compileWorkflow, CompileError } from "../compiler/compile.js";
+import { snapshotVersion } from "../versions.js";
 
 export const workflowRoutes = new Hono();
 
@@ -33,6 +34,8 @@ workflowRoutes.post("/compile", async (c) => {
         sourcePrompt: parsed.data.prompt,
       })
       .returning();
+
+    await snapshotVersion(id, result.graph, "compile", "compiled");
 
     return c.json({
       workflow: row,

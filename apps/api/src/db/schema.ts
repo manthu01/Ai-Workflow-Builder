@@ -20,6 +20,29 @@ export const workflows = pgTable("workflows", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * Immutable snapshots of a workflow's graph (Expansion #5). One is written on
+ * compile, on an explicit save, on deploy, before a rollback, and lazily before
+ * a run whose graph differs from the latest snapshot.
+ */
+export const workflowVersions = pgTable(
+  "workflow_versions",
+  {
+    id: text("id").primaryKey(),
+    workflowId: text("workflow_id")
+      .notNull()
+      .references(() => workflows.id, { onDelete: "cascade" }),
+    version: integer("version").notNull(),
+    graph: jsonb("graph").$type<WorkflowGraph>().notNull(),
+    label: text("label"),
+    source: text("source", {
+      enum: ["compile", "edit", "deploy", "run", "rollback"],
+    }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("workflow_versions_wf_idx").on(t.workflowId)],
+);
+
 export const runs = pgTable(
   "runs",
   {

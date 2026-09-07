@@ -8,6 +8,7 @@ import type {
   Schedule,
   WorkflowGraph,
   WorkflowRecord,
+  WorkflowVersion,
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -176,4 +177,19 @@ export const api = {
 
   deleteSchedule: (id: string) =>
     request<unknown>(`/api/schedules/${id}`, { method: "DELETE" }),
+
+  listVersions: (workflowId: string) =>
+    request<{ versions: WorkflowVersion[] }>(`/api/workflows/${workflowId}/versions`),
+
+  saveVersion: (workflowId: string, label?: string) =>
+    request<{ version: WorkflowVersion }>(`/api/workflows/${workflowId}/versions`, {
+      method: "POST",
+      body: JSON.stringify({ label }),
+    }),
+
+  rollback: (workflowId: string, versionId: string) =>
+    request<{ workflow: WorkflowRecord; issues: GraphIssue[] }>(
+      `/api/workflows/${workflowId}/rollback`,
+      { method: "POST", body: JSON.stringify({ versionId }) },
+    ),
 };

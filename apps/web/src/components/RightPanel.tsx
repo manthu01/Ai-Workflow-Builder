@@ -3,8 +3,15 @@ import { useApp } from "../store";
 import { NodeConfigPanel } from "./NodeConfigPanel";
 import { RunPanel } from "./RunPanel";
 import { DeployPanel } from "./DeployPanel";
+import { HistoryPanel } from "./HistoryPanel";
 
-type Tab = "inspector" | "run" | "deploy";
+type Tab = "inspector" | "run" | "deploy" | "history";
+const LABELS: Record<Tab, string> = {
+  inspector: "Inspector",
+  run: "Run",
+  deploy: "Deploy",
+  history: "History",
+};
 
 export function RightPanel() {
   const selectedNodeId = useApp((s) => s.selectedNodeId);
@@ -21,13 +28,13 @@ export function RightPanel() {
   return (
     <div className="rightpanel">
       <div className="tabs">
-        {(["inspector", "run", "deploy"] as Tab[]).map((t) => (
+        {(["inspector", "run", "deploy", "history"] as Tab[]).map((t) => (
           <button
             key={t}
             className={tab === t ? "tab active" : "tab"}
             onClick={() => setTab(t)}
           >
-            {t === "inspector" ? "Inspector" : t === "run" ? "Run results" : "Deploy"}
+            {LABELS[t]}
           </button>
         ))}
       </div>
@@ -36,8 +43,10 @@ export function RightPanel() {
           <NodeConfigPanel />
         ) : tab === "run" ? (
           <RunPanel />
-        ) : (
+        ) : tab === "deploy" ? (
           <DeployPanel />
+        ) : (
+          <HistoryPanel />
         )}
       </div>
     </div>

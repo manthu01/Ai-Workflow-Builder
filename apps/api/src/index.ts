@@ -8,6 +8,7 @@ import { runRoutes } from "./routes/runs.js";
 import { connectionRoutes } from "./routes/connections.js";
 import { deploymentRoutes, hookRoutes } from "./routes/deployments.js";
 import { scheduleRoutes } from "./routes/schedules.js";
+import { versionRoutes } from "./routes/versions.js";
 import { startScheduler } from "./scheduler.js";
 
 const app = new Hono();
@@ -27,6 +28,7 @@ app.route("/api/hooks", hookRoutes);
 app.route("/api", runRoutes);
 app.route("/api", deploymentRoutes);
 app.route("/api", scheduleRoutes);
+app.route("/api", versionRoutes);
 
 const port = env.API_PORT;
 serve({ fetch: app.fetch, port }, (info) => {

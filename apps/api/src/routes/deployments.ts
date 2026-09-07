@@ -6,6 +6,7 @@ import { db, schema } from "../db/client.js";
 import { newId } from "../id.js";
 import { env } from "../env.js";
 import { startRun } from "../engine.js";
+import { snapshotVersion } from "../versions.js";
 
 export const deploymentRoutes = new Hono();
 export const hookRoutes = new Hono();
@@ -44,6 +45,8 @@ deploymentRoutes.post("/workflows/:id/deploy", async (c) => {
       graphSnapshot: wf.graph,
     })
     .returning();
+
+  await snapshotVersion(workflowId, wf.graph, "deploy", "deployed");
 
   return c.json({ deployment: withUrl(row!) });
 });

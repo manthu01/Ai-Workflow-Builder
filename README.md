@@ -141,7 +141,19 @@ approve resumes the workflow, reject fails the node and skips everything
 downstream. The run stays open (no polling cost beyond the progress stream)
 until a decision arrives.
 
-## Roadmap
+## Expansion #5 — version control & rollbacks (done)
 
-Core phases done. Expansion so far: #4 branching/parallel, #1 approvals.
-Next: #5 version control & rollbacks.
+Every workflow keeps an append-only list of graph **snapshots**. One is written
+on compile, on an explicit "Save version", on deploy, and before each run —
+deduped by a position-independent signature so unchanged graphs don't pile up.
+The **History** tab lists them with source and timestamp; "Restore" rolls the
+working graph back to that version (snapshotting the current state first, so the
+rollback is itself reversible).
+
+## Status
+
+All four blueprint core phases plus Expansion #4 (branching/parallel), #1
+(approvals), and #5 (version control) are implemented. The remaining Expansion
+features (#2 self-healing, #3 OpenAPI ingestion, #6 local execution, #7 analytics
+dashboard, #8 template marketplace, #9 sandboxed code node, #10 asset generator)
+are unstarted.

@@ -12,6 +12,7 @@ import type {
   WorkflowGraph,
   WorkflowNode,
   WorkflowRecord,
+  WorkflowVersion,
 } from "./types";
 
 export interface ChatEntry {
@@ -29,6 +30,7 @@ interface AppState {
   connections: Connection[];
   deployments: Deployment[];
   schedules: Schedule[];
+  versions: WorkflowVersion[];
   connectionsOpen: boolean;
   setConnectionsOpen: (open: boolean) => void;
   compiling: boolean;
@@ -61,6 +63,10 @@ interface AppState {
   createSchedule: (cron: string, timezone: string) => Promise<void>;
   setScheduleStatus: (id: string, action: "pause" | "resume") => Promise<void>;
   removeSchedule: (id: string) => Promise<void>;
+
+  loadVersions: () => Promise<void>;
+  saveVersion: (label?: string) => Promise<void>;
+  rollback: (versionId: string) => Promise<void>;
 
   setGraph: (graph: WorkflowGraph) => void;
   updateNode: (id: string, patch: Partial<Pick<WorkflowNode, "label" | "config">>) => void;
@@ -139,6 +145,7 @@ export const useApp = create<AppState>((set, get) => {
     connections: [],
     deployments: [],
     schedules: [],
+    versions: [],
     connectionsOpen: false,
     setConnectionsOpen: (open) => set({ connectionsOpen: open }),
     compiling: false,
@@ -455,6 +462,50 @@ export const useApp = create<AppState>((set, get) => {
       try {
         await api.deleteSchedule(id);
         set((s) => ({ schedules: s.schedules.filter((x) => x.id !== id) }));
+      } catch (err) {
+        set({ error: (err as Error).message });
+      }
+    },
+
+    loadVersions: async () => {
+      const wf = get().workflow;
+      if (!wf) return set({ versions: [] });
+      try {
+        const res = await api.listVersions(wf.id);
+        set({ versions: res.versions });
+      } catch {
+        /* non-fatal */
+      }
+    },
+
+    saveVersion: async (label) => {
+      const wf = get().workflow;
+      if (!wf) return;
+      if (persistTimer) {
+        clearTimeout(persistTimer);
+        await get().persistNow();
+      }
+      try {
+        await api.saveVersion(wf.id, label);
+        await get().loadVersions();
+      } catch (err) {
+        set({ error: (err as Error).message });
+      }
+    },
+
+    rollback: async (versionId) => {
+      const wf = get().workflow;
+      if (!wf) return;
+      try {
+        const res = await api.rollback(wf.id, versionId);
+        set((s) => ({
+          workflow: res.workflow,
+          issues: res.issues,
+          selectedNodeId: null,
+          run: null,
+          chat: [...s.chat, { role: "system", text: "Rolled back to an earlier version." }],
+        }));
+        await get().loadVersions();
       } catch (err) {
         set({ error: (err as Error).message });
       }
