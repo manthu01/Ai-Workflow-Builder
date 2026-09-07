@@ -1,0 +1,134 @@
+import { z } from "zod";
+
+/**
+ * The set of node kinds the compiler can emit and the engine can execute in
+ * milestone 1. Every kind has a config schema (validated on save and before a
+ * run) and a catalog entry (fed to the compiler prompt and the canvas palette).
+ */
+export const NODE_KINDS = [
+  "trigger",
+  "llm",
+  "http_request",
+  "transform",
+  "slack_post",
+] as const;
+
+export type NodeKind = (typeof NODE_KINDS)[number];
+
+export const TriggerConfig = z.object({
+  /** How the deployed workflow will be invoked. */
+  event: z.enum(["webhook", "manual", "schedule"]),
+  /**
+   * A JSON object (encoded as a string) representing an example trigger
+   * payload. Dry runs feed this into the graph as the trigger node's output.
+   */
+  samplePayload: z.string().default("{}"),
+});
+
+export const LlmConfig = z.object({
+  /** Prompt text. May contain {{ node_id.path }} references to upstream output. */
+  prompt: z.string().min(1),
+  /** "text" returns a string, "json" asks the model for a JSON object. */
+  output: z.enum(["text", "json"]).default("text"),
+  model: z.string().optional(),
+});
+
+export const HttpRequestConfig = z.object({
+  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).default("GET"),
+  /** Target URL. Templated. */
+  url: z.string().min(1),
+  /** JSON object (string-encoded) of request headers. Templated. */
+  headers: z.string().default("{}"),
+  /** JSON object (string-encoded) request body for non-GET requests. Templated. */
+  body: z.string().default("{}"),
+});
+
+export const TransformConfig = z.object({
+  /**
+   * A single JavaScript expression evaluated in a sandbox with `input` bound to
+   * the merged upstream outputs. e.g. `{ title: input.trigger.pr.title.trim() }`
+   */
+  expression: z.string().min(1),
+});
+
+export const SlackPostConfig = z.object({
+  /** Channel name or id, e.g. "#eng" or "C0123". Templated. */
+  channel: z.string().min(1),
+  /** Message body. Templated. */
+  text: z.string().min(1),
+});
+
+export const NODE_CONFIG_SCHEMAS = {
+  trigger: TriggerConfig,
+  llm: LlmConfig,
+  http_request: HttpRequestConfig,
+  transform: TransformConfig,
+  slack_post: SlackPostConfig,
+} satisfies Record<NodeKind, z.ZodTypeAny>;
+
+export type NodeConfigFor<K extends NodeKind> = z.infer<
+  (typeof NODE_CONFIG_SCHEMAS)[K]
+>;
+
+export interface NodeCatalogEntry {
+  kind: NodeKind;
+  title: string;
+  description: string;
+  /** Whether this kind starts a workflow (has no inputs). */
+  isTrigger: boolean;
+  /** Whether executing this kind can cause an external side effect. */
+  hasSideEffects: boolean;
+  /** Human-readable summary of the config fields for the compiler prompt. */
+  configFields: string;
+}
+
+export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
+  trigger: {
+    kind: "trigger",
+    title: "Trigger",
+    description:
+      "Entry point. Fires the workflow from a webhook, a manual run, or a schedule.",
+    isTrigger: true,
+    hasSideEffects: false,
+    configFields:
+      'event: "webhook" | "manual" | "schedule"; samplePayload: string (JSON object literal used as example input for dry runs)',
+  },
+  llm: {
+    kind: "llm",
+    title: "LLM Step",
+    description:
+      "Calls a language model with a templated prompt. Use for summarizing, drafting, classifying, or extracting structured data.",
+    isTrigger: false,
+    hasSideEffects: false,
+    configFields:
+      'prompt: string (supports {{ node_id.field }} templates); output: "text" | "json"',
+  },
+  http_request: {
+    kind: "http_request",
+    title: "HTTP Request",
+    description:
+      "Calls an external HTTP API. Use for any integration without a dedicated node.",
+    isTrigger: false,
+    hasSideEffects: true,
+    configFields:
+      'method: GET|POST|PUT|PATCH|DELETE; url: string; headers: string (JSON object); body: string (JSON object). All templated.',
+  },
+  transform: {
+    kind: "transform",
+    title: "Transform",
+    description:
+      "Reshapes data between steps with a single JavaScript expression. No side effects.",
+    isTrigger: false,
+    hasSideEffects: false,
+    configFields:
+      "expression: string (one JS expression; `input` is bound to the merged upstream outputs)",
+  },
+  slack_post: {
+    kind: "slack_post",
+    title: "Post to Slack",
+    description: "Posts a message to a Slack channel.",
+    isTrigger: false,
+    hasSideEffects: true,
+    configFields: "channel: string; text: string. Both templated.",
+  },
+};

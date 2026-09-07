@@ -1,0 +1,31 @@
+{
+  "name": "ai-workflow-builder",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Plain-English to visual node graph to executable automation pipeline",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "npm run build -w @awb/core && concurrently -n core,api,worker,web -c gray,green,yellow,cyan \"npm:dev:core\" \"npm:dev:api\" \"npm:dev:worker\" \"npm:dev:web\"",
+    "dev:core": "npm run dev -w @awb/core",
+    "dev:api": "npm run dev -w @awb/api",
+    "dev:worker": "npm run dev -w @awb/worker",
+    "dev:web": "npm run dev -w @awb/web",
+    "build": "npm run build -w @awb/core && npm run build -w @awb/api && npm run build -w @awb/worker && npm run build -w @awb/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "db:push": "npm run db:push -w @awb/api",
+    "db:studio": "npm run db:studio -w @awb/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "typescript": "^5.7.3"
+  }
+}

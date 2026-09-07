@@ -1,0 +1,17 @@
+import type { NodeKind } from "@awb/core";
+import type { NodeExecutor } from "./types.js";
+import { runTrigger } from "./trigger.js";
+import { runLlm } from "./llm.js";
+import { runHttpRequest } from "./httpRequest.js";
+import { runTransform } from "./transform.js";
+import { runSlackPost } from "./slackPost.js";
+
+export const NODE_EXECUTORS: Record<NodeKind, NodeExecutor> = {
+  trigger: runTrigger,
+  llm: runLlm,
+  http_request: runHttpRequest,
+  transform: runTransform,
+  slack_post: runSlackPost,
+};
+
+export type { NodeExecutor, NodeExecCtx, NodeExecResult } from "./types.js";
