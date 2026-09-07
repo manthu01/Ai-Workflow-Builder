@@ -134,7 +134,7 @@ export function validateGraph(graph: WorkflowGraph): GraphIssue[] {
 }
 
 export interface NodeOutcome {
-  status: "pending" | "running" | "succeeded" | "failed" | "skipped";
+  status: "pending" | "running" | "awaiting" | "succeeded" | "failed" | "skipped";
   output?: unknown;
 }
 

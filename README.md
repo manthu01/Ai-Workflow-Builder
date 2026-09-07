@@ -131,7 +131,17 @@ The engine is no longer linear:
 - Merge nodes use an **OR-join** — they run as soon as any one live path
   reaches them, with the merged outputs of whichever upstreams completed.
 
+## Expansion #1 — Human-in-the-Loop approvals (done)
+
+An **`approval` node** pauses the run before a sensitive step. When the engine
+reaches it the workflow blocks on a Temporal signal and the node shows as
+`awaiting` in the run panel with the (templated) approval message and
+Approve / Reject buttons. `POST /api/runs/:id/approve` signals the decision;
+approve resumes the workflow, reject fails the node and skips everything
+downstream. The run stays open (no polling cost beyond the progress stream)
+until a decision arrives.
+
 ## Roadmap
 
-Core phases done. Expansion so far: #4 branching/parallel. Next: #1 Human-in-the-Loop
-approvals, #5 version control & rollbacks.
+Core phases done. Expansion so far: #4 branching/parallel, #1 approvals.
+Next: #5 version control & rollbacks.

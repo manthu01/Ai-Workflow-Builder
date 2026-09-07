@@ -1,15 +1,57 @@
+import { useState } from "react";
 import { useApp } from "../store";
 import type { NodeRunResult } from "../types";
 
+function ApprovalGate({ node }: { node: NodeRunResult }) {
+  const approve = useApp((s) => s.approve);
+  const [note, setNote] = useState("");
+  const [sent, setSent] = useState(false);
+
+  return (
+    <div className="approval-gate">
+      <div className="approval-msg">{node.logs[0] ?? "Approve this step?"}</div>
+      <input
+        placeholder="note (optional)"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+        disabled={sent}
+      />
+      <div style={{ display: "flex", gap: 6 }}>
+        <button
+          className="primary"
+          disabled={sent}
+          onClick={() => {
+            setSent(true);
+            void approve(node.nodeId, "approve", note || undefined);
+          }}
+        >
+          Approve
+        </button>
+        <button
+          disabled={sent}
+          style={{ color: "var(--fail)" }}
+          onClick={() => {
+            setSent(true);
+            void approve(node.nodeId, "reject", note || undefined);
+          }}
+        >
+          Reject
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function NodeRunCard({ node }: { node: NodeRunResult }) {
   return (
-    <details className="node-run" open={node.status === "failed"}>
+    <details className="node-run" open={node.status === "failed" || node.status === "awaiting"}>
       <summary>
         <span className={`dot ${node.status}`} />
         <strong>{node.nodeId}</strong>
         <span className="badge">{node.status}</span>
         {node.attempts > 1 && <span className="badge">{node.attempts} attempts</span>}
       </summary>
+      {node.status === "awaiting" && <ApprovalGate node={node} />}
       {node.logs.map((l, i) => (
         <div key={i} className="logline">
           · {l}
@@ -64,7 +106,7 @@ export function RunPanel() {
             : "Compile a workflow first."}
         </div>
       )}
-      {running && <div className="empty">Running…</div>}
+      {running && !run && <div className="empty">Running…</div>}
       {run?.nodes.map((n) => (
         <NodeRunCard key={n.nodeId} node={n} />
       ))}

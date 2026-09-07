@@ -41,6 +41,8 @@ interface AppState {
   doRun: (mode: "dry" | "live") => Promise<void>;
   selectNode: (id: string | null) => void;
 
+  approve: (nodeId: string, decision: "approve" | "reject", note?: string) => Promise<void>;
+
   loadConnections: () => Promise<void>;
   createConnection: (body: {
     name: string;
@@ -218,6 +220,16 @@ export const useApp = create<AppState>((set, get) => {
     },
 
     selectNode: (id) => set({ selectedNodeId: id }),
+
+    approve: async (nodeId, decision, note) => {
+      const run = get().run;
+      if (!run) return;
+      try {
+        await api.approve(run.runId, nodeId, decision, note);
+      } catch (err) {
+        set({ error: (err as Error).message });
+      }
+    },
 
     setGraph: (graph) =>
       set((s) => (s.workflow ? { workflow: { ...s.workflow, graph } } : {})),

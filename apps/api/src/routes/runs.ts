@@ -2,7 +2,12 @@ import { Hono } from "hono";
 import { streamSSE } from "hono/streaming";
 import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
-import { validateGraph, RunProgressQueryName, type RunResult } from "@awb/core";
+import {
+  validateGraph,
+  RunProgressQueryName,
+  ApprovalSignalName,
+  type RunResult,
+} from "@awb/core";
 import { db, schema } from "../db/client.js";
 import { startRun, finalizeRun } from "../engine.js";
 import { getTemporalClient } from "../temporal/client.js";
@@ -112,6 +117,40 @@ runRoutes.get("/runs/:id/stream", (c) => {
       ),
     });
   });
+});
+
+const ApproveBody = z.object({
+  nodeId: z.string().min(1),
+  decision: z.enum(["approve", "reject"]),
+  note: z.string().max(2000).optional(),
+  by: z.string().max(120).optional(),
+});
+
+/** Resolve a paused approval gate by signalling the engine workflow. */
+runRoutes.post("/runs/:id/approve", async (c) => {
+  const parsed = ApproveBody.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid body" }, 400);
+
+  const [run] = await db
+    .select()
+    .from(schema.runs)
+    .where(eq(schema.runs.id, c.req.param("id")));
+  if (!run) return c.json({ error: "run not found" }, 404);
+  if (run.status !== "running") return c.json({ error: "run is not waiting" }, 409);
+
+  const client = await getTemporalClient();
+  const handle = client.workflow.getHandle(run.temporalWorkflowId);
+  try {
+    await handle.signal(ApprovalSignalName, {
+      nodeId: parsed.data.nodeId,
+      decision: parsed.data.decision === "approve" ? "approved" : "rejected",
+      note: parsed.data.note,
+      by: parsed.data.by ?? "someone",
+    });
+  } catch (err) {
+    return c.json({ error: `could not signal run: ${(err as Error).message}` }, 502);
+  }
+  return c.json({ ok: true }, 202);
 });
 
 runRoutes.get("/workflows/:id/runs", async (c) => {

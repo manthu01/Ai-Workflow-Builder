@@ -253,7 +253,27 @@ textarea {
 .dot.failed { background: var(--fail); }
 .dot.skipped { background: var(--skip); }
 .dot.running { background: var(--accent); }
+.dot.awaiting { background: var(--warn); }
 .dot.pending { background: var(--muted); }
+
+.approval-gate {
+  border-top: 1px solid var(--border);
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+}
+.approval-msg { font-size: 13px; line-height: 1.4; }
+.approval-gate input {
+  font: inherit;
+  font-size: 12px;
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 5px 7px;
+}
 
 .badge {
   font-size: 10px;
@@ -284,6 +304,14 @@ textarea {
 .step-node.running {
   border-color: var(--accent);
   animation: node-pulse 1s ease-in-out infinite;
+}
+.step-node.awaiting {
+  border-color: var(--warn);
+  animation: node-pulse-warn 1.4s ease-in-out infinite;
+}
+@keyframes node-pulse-warn {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--warn) 55%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--warn) 0%, transparent); }
 }
 @keyframes node-pulse {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }

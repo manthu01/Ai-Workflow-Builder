@@ -15,6 +15,7 @@ const KIND_LABEL: Record<NodeKind, string> = {
   http_request: "HTTP Request",
   transform: "Transform",
   branch: "Branch",
+  approval: "Approval",
   slack_post: "Post to Slack",
 };
 

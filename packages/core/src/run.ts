@@ -24,11 +24,22 @@ export interface WorkflowExecutionInput {
 export const NodeRunStatus = z.enum([
   "pending",
   "running",
+  "awaiting",
   "succeeded",
   "failed",
   "skipped",
 ]);
 export type NodeRunStatus = z.infer<typeof NodeRunStatus>;
+
+/** Temporal signal name for a human approval decision on an approval node. */
+export const ApprovalSignalName = "approvalDecision";
+
+export interface ApprovalDecision {
+  nodeId: string;
+  decision: "approved" | "rejected";
+  note?: string;
+  by?: string;
+}
 
 export const NodeRunResultSchema = z.object({
   nodeId: z.string(),

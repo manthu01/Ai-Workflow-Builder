@@ -113,6 +113,17 @@ export const api = {
     return close;
   },
 
+  approve: (
+    runId: string,
+    nodeId: string,
+    decision: "approve" | "reject",
+    note?: string,
+  ) =>
+    request<{ ok: boolean }>(`/api/runs/${runId}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ nodeId, decision, note }),
+    }),
+
   listConnections: () => request<{ connections: Connection[] }>("/api/connections"),
 
   createConnection: (body: {

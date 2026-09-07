@@ -13,6 +13,11 @@ export const NODE_EXECUTORS: Record<NodeKind, NodeExecutor> = {
   http_request: runHttpRequest,
   transform: runTransform,
   branch: runBranch,
+  // Approval gates are handled inline by the engine workflow (they wait on a
+  // signal), never dispatched as an activity.
+  approval: async () => {
+    throw new Error("approval nodes are handled by the engine, not as an activity");
+  },
   slack_post: runSlackPost,
 };
 

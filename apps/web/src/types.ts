@@ -4,6 +4,7 @@ export type NodeKind =
   | "http_request"
   | "transform"
   | "branch"
+  | "approval"
   | "slack_post";
 
 export interface WorkflowNode {
@@ -100,6 +101,7 @@ export interface NodeCatalogEntry {
 export type NodeRunStatus =
   | "pending"
   | "running"
+  | "awaiting"
   | "succeeded"
   | "failed"
   | "skipped";

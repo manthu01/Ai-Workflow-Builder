@@ -11,6 +11,7 @@ export const NODE_KINDS = [
   "http_request",
   "transform",
   "branch",
+  "approval",
   "slack_post",
 ] as const;
 
@@ -74,6 +75,13 @@ export const BranchConfig = z.object({
   expression: z.string().min(1),
 });
 
+export const ApprovalConfig = z.object({
+  /** Message shown to the approver. May contain {{ node_id.field }} templates. */
+  message: z.string().min(1),
+  /** Free-text note about who should approve (informational only). */
+  approvers: z.string().default(""),
+});
+
 export const SlackPostConfig = z.object({
   /** Channel name or id, e.g. "#eng" or "C0123". Templated. */
   channel: z.string().min(1),
@@ -89,6 +97,7 @@ export const NODE_CONFIG_SCHEMAS = {
   http_request: HttpRequestConfig,
   transform: TransformConfig,
   branch: BranchConfig,
+  approval: ApprovalConfig,
   slack_post: SlackPostConfig,
 } satisfies Record<NodeKind, z.ZodTypeAny>;
 
@@ -255,6 +264,27 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
         placeholder: "input.trigger.pull_request.merged === true",
         help: "JS expression. Truthy takes the 'true' path, falsy the 'false' path.",
       },
+    ],
+  },
+  approval: {
+    kind: "approval",
+    title: "Approval gate",
+    description:
+      "Pauses the workflow before a sensitive step until a human approves or rejects it in the run panel.",
+    isTrigger: false,
+    hasSideEffects: false,
+    configFields:
+      "message: string (shown to the approver, templated); approvers: string (informational)",
+    fields: [
+      {
+        key: "message",
+        label: "Approval message",
+        widget: "textarea",
+        default: "Approve this step?",
+        placeholder: "Send ${{ transform.amount }} refund to {{ trigger.customer.email }}?",
+        help: "Shown to whoever reviews the run. Supports {{ node_id.field }} templates.",
+      },
+      { key: "approvers", label: "Who approves (note)", widget: "text", default: "" },
     ],
   },
   slack_post: {

@@ -42,6 +42,9 @@ RULES
    edges MUST set "sourceHandle" to "true" or "false"; every other edge sets
    "sourceHandle" to "". Nodes can run in parallel - fan multiple edges out of
    one node when steps are independent.
+9b. Insert an "approval" node before an irreversible or sensitive action
+   (sending money, deleting data, emailing customers) when the request asks for
+   a review/approval step or clearly implies one.
 10. Prefer a dedicated node (slack_post) over http_request when one fits.
 11. For "trigger", pick the event: "webhook" for "when X happens in <service>",
    "schedule" for "every day / hourly", "manual" otherwise. Always include a

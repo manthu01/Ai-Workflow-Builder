@@ -109,7 +109,7 @@ export const nodeRuns = pgTable(
       .references(() => runs.id, { onDelete: "cascade" }),
     nodeId: text("node_id").notNull(),
     status: text("status", {
-      enum: ["pending", "running", "succeeded", "failed", "skipped"],
+      enum: ["pending", "running", "awaiting", "succeeded", "failed", "skipped"],
     }).notNull(),
     input: jsonb("input"),
     output: jsonb("output"),

@@ -1,12 +1,22 @@
-import { proxyActivities, defineQuery, setHandler } from "@temporalio/workflow";
+import {
+  proxyActivities,
+  defineQuery,
+  defineSignal,
+  setHandler,
+  condition,
+} from "@temporalio/workflow";
 import {
   liveInboundEdges,
+  renderString,
+  ApprovalConfig,
   RunProgressQueryName,
+  ApprovalSignalName,
   type WorkflowExecutionInput,
   type RunResult,
   type RunProgress,
   type NodeRunResult,
   type NodeOutcome,
+  type ApprovalDecision,
 } from "@awb/core";
 import type * as activities from "./activities.js";
 
@@ -27,6 +37,7 @@ function rootMessage(err: unknown): string {
 }
 
 const getRunProgress = defineQuery<RunProgress>(RunProgressQueryName);
+const approvalSignal = defineSignal<[ApprovalDecision]>(ApprovalSignalName);
 
 const { executeNode } = proxyActivities<typeof activities>({
   startToCloseTimeout: "2 minutes",
@@ -53,14 +64,21 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
       Object.entries(results).map(([id, r]) => [id, { status: r.status, output: r.output }]),
     );
 
+  const approvals: Record<string, ApprovalDecision> = {};
+  setHandler(approvalSignal, (d) => {
+    approvals[d.nodeId] = d;
+  });
+
   setHandler(getRunProgress, () => ({
     status: anyFailed ? "failed" : "running",
     nodes: Object.values(results),
     startedAt,
   }));
 
-  const isSettled = (id: string) =>
-    results[id] !== undefined && results[id].status !== "running";
+  const isSettled = (id: string) => {
+    const r = results[id];
+    return r !== undefined && r.status !== "running" && r.status !== "awaiting";
+  };
 
   while (Object.keys(results).length < graph.nodes.length) {
     const ready = graph.nodes.filter(
@@ -91,18 +109,21 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
       }
     }
 
-    // Snapshot each node's input from its live upstreams, mark running.
+    // Snapshot each node's input from its live upstreams, mark running/awaiting.
     const inputs = new Map<string, Record<string, unknown>>();
     for (const n of toRun) {
       const live = liveInboundEdges(graph, n.id, outcomes());
       const slice: Record<string, unknown> = {};
       for (const e of live) slice[e.source] = outputs[e.source];
       inputs.set(n.id, slice);
+      const isApproval = n.kind === "approval";
       results[n.id] = {
         nodeId: n.id,
-        status: "running",
+        status: isApproval ? "awaiting" : "running",
         input: slice,
-        logs: [],
+        logs: isApproval
+          ? [renderString(ApprovalConfig.parse(n.config).message, outputs)]
+          : [],
         attempts: 1,
         startedAt: new Date().toISOString(),
       };
@@ -111,6 +132,35 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
     const settled = await Promise.all(
       toRun.map(async (n): Promise<NodeRunResult> => {
         const slice = inputs.get(n.id)!;
+
+        if (n.kind === "approval") {
+          const cfg = ApprovalConfig.parse(n.config);
+          const message = renderString(cfg.message, outputs);
+          await condition(() => approvals[n.id] !== undefined);
+          const d = approvals[n.id]!;
+          if (d.decision === "approved") {
+            return {
+              nodeId: n.id,
+              status: "succeeded",
+              input: slice,
+              output: { approved: true, note: d.note ?? "", by: d.by ?? "", message },
+              logs: [`approved${d.by ? ` by ${d.by}` : ""}${d.note ? `: ${d.note}` : ""}`],
+              attempts: 1,
+              finishedAt: new Date().toISOString(),
+            };
+          }
+          anyFailed = true;
+          return {
+            nodeId: n.id,
+            status: "failed",
+            input: slice,
+            error: `rejected${d.by ? ` by ${d.by}` : ""}${d.note ? `: ${d.note}` : ""}`,
+            logs: [],
+            attempts: 1,
+            finishedAt: new Date().toISOString(),
+          };
+        }
+
         try {
           const res = await executeNode({
             node: n,
