@@ -46,6 +46,7 @@ export class StubCompilerProvider implements WorkflowCompilerProvider {
       label: "Summarize",
       config: {
         output: "text",
+        tier: "fast",
         prompt: wantsPr
           ? "Summarize this merged pull request in 2 sentences for a team channel.\n\nTitle: {{ trigger.pull_request.title }}\nDescription: {{ trigger.pull_request.body }}"
           : "Summarize the following in one sentence:\n\n{{ trigger.message }}",

@@ -9,8 +9,13 @@ const EnvSchema = z.object({
   TEMPORAL_TASK_QUEUE: z.string().default("awb-workflows"),
   COMPILER_MODE: z.enum(["stub", "claude"]).default("stub"),
   ANTHROPIC_API_KEY: z.string().optional(),
-  COMPILER_MODEL: z.string().default("claude-sonnet-5"),
+  /** Force a compiler model; leave empty to route by request complexity. */
+  COMPILER_MODEL: z.string().default(""),
   DRY_RUN_LLM: z.enum(["mock", "live"]).default("mock"),
+  /** Model ids for the three routing tiers (compiler + llm nodes). */
+  MODEL_FAST: z.string().default("claude-haiku-4-5"),
+  MODEL_BALANCED: z.string().default("claude-sonnet-5"),
+  MODEL_DEEP: z.string().default("claude-opus-5"),
   /** Key for the credential vault. Any string works; use 32 random bytes in prod. */
   SECRET_KEY: z.string().default("dev-insecure-secret-key-change-me"),
   /** Shared token the worker uses to resolve connection secrets from the API. */
@@ -21,3 +26,9 @@ const EnvSchema = z.object({
 
 export const env = EnvSchema.parse(process.env);
 export type Env = z.infer<typeof EnvSchema>;
+
+export const tierModels = {
+  fast: env.MODEL_FAST,
+  balanced: env.MODEL_BALANCED,
+  deep: env.MODEL_DEEP,
+};

@@ -3,6 +3,8 @@ import type { CompilerGraph } from "../compiler/schema.js";
 export interface CompileAttemptContext {
   /** Validation issues from a previous attempt, for a repair round-trip. */
   priorIssues?: string[];
+  /** Model id to use for this attempt (chosen by the complexity router). */
+  model?: string;
 }
 
 /**

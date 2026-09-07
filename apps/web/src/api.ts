@@ -5,6 +5,7 @@ import type {
   GraphIssue,
   NodeCatalogEntry,
   RunResult,
+  Schedule,
   WorkflowGraph,
   WorkflowRecord,
 } from "./types";
@@ -32,6 +33,7 @@ export interface CompileResponse {
   provider: string;
   attempts: number;
   warnings: GraphIssue[];
+  routing: { tier: string; model: string; reasons: string[] };
 }
 
 export const api = {
@@ -148,4 +150,19 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  listSchedules: (workflowId: string) =>
+    request<{ schedules: Schedule[] }>(`/api/workflows/${workflowId}/schedules`),
+
+  createSchedule: (workflowId: string, cron: string, timezone: string) =>
+    request<{ schedule: Schedule }>(`/api/workflows/${workflowId}/schedule`, {
+      method: "POST",
+      body: JSON.stringify({ cron, timezone }),
+    }),
+
+  setScheduleStatus: (id: string, action: "pause" | "resume") =>
+    request<{ schedule: Schedule }>(`/api/schedules/${id}/${action}`, { method: "POST" }),
+
+  deleteSchedule: (id: string) =>
+    request<unknown>(`/api/schedules/${id}`, { method: "DELETE" }),
 };

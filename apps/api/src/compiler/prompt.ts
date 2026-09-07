@@ -35,18 +35,21 @@ RULES
    output is its sample payload, so downstream nodes read e.g.
    {{ trigger.pull_request.title }}. Each node's output is available to its
    descendants under its node id.
-7. Prefer a dedicated node (slack_post) over http_request when one fits.
-8. For "trigger", pick the event: "webhook" for "when X happens in <service>",
+7. For every "llm" node set a "tier": "fast" for trivial rewrites/short
+   summaries/simple classification, "balanced" for normal drafting/extraction,
+   "deep" only for genuinely hard multi-step reasoning or analysis.
+8. Prefer a dedicated node (slack_post) over http_request when one fits.
+9. For "trigger", pick the event: "webhook" for "when X happens in <service>",
    "schedule" for "every day / hourly", "manual" otherwise. Always include a
    realistic samplePayload that later nodes can template against.
-9. Keep it minimal: only the nodes needed to fulfil the request.
+10. Keep it minimal: only the nodes needed to fulfil the request.
 
 EXAMPLE
 Request: "When a PR is merged, summarize it and post the summary to #eng on Slack."
 Graph:
 - trigger (kind trigger): event "webhook", samplePayload
   {"action":"closed","pull_request":{"title":"Add retry logic","body":"Adds exponential backoff to the client","merged":true,"html_url":"https://github.com/acme/app/pull/42"}}
-- summarize (kind llm): output "text", prompt
+- summarize (kind llm): output "text", tier "fast", prompt
   "Summarize this merged pull request in 2 sentences for a team channel.\\n\\nTitle: {{ trigger.pull_request.title }}\\nDescription: {{ trigger.pull_request.body }}"
 - post_to_slack (kind slack_post): channel "#eng", text
   "Merged: {{ trigger.pull_request.title }}\\n{{ summarize.text }}\\n{{ trigger.pull_request.html_url }}"

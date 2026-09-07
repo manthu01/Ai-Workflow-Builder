@@ -17,18 +17,19 @@ import type {
 export class AnthropicCompilerProvider implements WorkflowCompilerProvider {
   readonly name = "anthropic";
   private readonly client: Anthropic;
-  private readonly model: string;
+  private readonly fallbackModel: string;
   private readonly system = buildSystemPrompt();
 
   constructor(opts: { apiKey: string; model: string }) {
     this.client = new Anthropic({ apiKey: opts.apiKey });
-    this.model = opts.model;
+    this.fallbackModel = opts.model;
   }
 
   async generate(
     request: string,
     ctx?: CompileAttemptContext,
   ): Promise<CompilerGraph> {
+    const model = ctx?.model || this.fallbackModel;
     const messages: Anthropic.MessageParam[] = [
       { role: "user", content: buildUserPrompt(request) },
     ];
@@ -37,7 +38,7 @@ export class AnthropicCompilerProvider implements WorkflowCompilerProvider {
     }
 
     const response = await this.client.messages.create({
-      model: this.model,
+      model,
       max_tokens: 8000,
       system: [
         { type: "text", text: this.system, cache_control: { type: "ephemeral" } },

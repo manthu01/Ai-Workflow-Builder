@@ -8,6 +8,7 @@ import type {
   NodeCatalogEntry,
   NodeKind,
   RunResult,
+  Schedule,
   WorkflowGraph,
   WorkflowNode,
   WorkflowRecord,
@@ -27,6 +28,7 @@ interface AppState {
   selectedNodeId: string | null;
   connections: Connection[];
   deployments: Deployment[];
+  schedules: Schedule[];
   connectionsOpen: boolean;
   setConnectionsOpen: (open: boolean) => void;
   compiling: boolean;
@@ -52,6 +54,11 @@ interface AppState {
   setDeploymentStatus: (id: string, action: "pause" | "resume") => Promise<void>;
   removeDeployment: (id: string) => Promise<void>;
   fireHook: (url: string, payload: unknown) => Promise<void>;
+
+  loadSchedules: () => Promise<void>;
+  createSchedule: (cron: string, timezone: string) => Promise<void>;
+  setScheduleStatus: (id: string, action: "pause" | "resume") => Promise<void>;
+  removeSchedule: (id: string) => Promise<void>;
 
   setGraph: (graph: WorkflowGraph) => void;
   updateNode: (id: string, patch: Partial<Pick<WorkflowNode, "label" | "config">>) => void;
@@ -129,6 +136,7 @@ export const useApp = create<AppState>((set, get) => {
     selectedNodeId: null,
     connections: [],
     deployments: [],
+    schedules: [],
     connectionsOpen: false,
     setConnectionsOpen: (open) => set({ connectionsOpen: open }),
     compiling: false,
@@ -161,6 +169,10 @@ export const useApp = create<AppState>((set, get) => {
         const warn = res.warnings.length
           ? ` (${res.warnings.length} warning${res.warnings.length > 1 ? "s" : ""})`
           : "";
+        const routed =
+          res.provider === "anthropic"
+            ? ` Routed to ${res.routing.tier} tier (${res.routing.model}) - ${res.routing.reasons.join(", ")}.`
+            : "";
         set((s) => ({
           workflow: res.workflow,
           issues: res.warnings,
@@ -169,7 +181,7 @@ export const useApp = create<AppState>((set, get) => {
             ...s.chat,
             {
               role: "system",
-              text: `Compiled "${res.workflow.name}" - ${res.workflow.graph.nodes.length} nodes via ${res.provider}${warn}.`,
+              text: `Compiled "${res.workflow.name}" - ${res.workflow.graph.nodes.length} nodes via ${res.provider}${warn}.${routed}`,
             },
           ],
         }));
@@ -369,6 +381,59 @@ export const useApp = create<AppState>((set, get) => {
         );
       } catch (err) {
         set({ running: false, error: (err as Error).message });
+      }
+    },
+
+    loadSchedules: async () => {
+      const wf = get().workflow;
+      if (!wf) return set({ schedules: [] });
+      try {
+        const res = await api.listSchedules(wf.id);
+        set({ schedules: res.schedules });
+      } catch {
+        /* non-fatal */
+      }
+    },
+
+    createSchedule: async (cron, timezone) => {
+      const wf = get().workflow;
+      if (!wf) return;
+      if (persistTimer) {
+        clearTimeout(persistTimer);
+        await get().persistNow();
+      }
+      try {
+        const res = await api.createSchedule(wf.id, cron, timezone);
+        set((s) => ({
+          schedules: [res.schedule, ...s.schedules],
+          chat: [
+            ...s.chat,
+            { role: "system", text: `Scheduled "${cron}" (${timezone}).` },
+          ],
+        }));
+      } catch (err) {
+        set({ error: (err as Error).message });
+        throw err;
+      }
+    },
+
+    setScheduleStatus: async (id, action) => {
+      try {
+        const res = await api.setScheduleStatus(id, action);
+        set((s) => ({
+          schedules: s.schedules.map((x) => (x.id === id ? res.schedule : x)),
+        }));
+      } catch (err) {
+        set({ error: (err as Error).message });
+      }
+    },
+
+    removeSchedule: async (id) => {
+      try {
+        await api.deleteSchedule(id);
+        set((s) => ({ schedules: s.schedules.filter((x) => x.id !== id) }));
+      } catch (err) {
+        set({ error: (err as Error).message });
       }
     },
 

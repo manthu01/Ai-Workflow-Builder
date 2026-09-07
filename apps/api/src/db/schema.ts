@@ -29,8 +29,11 @@ export const runs = pgTable(
       .references(() => workflows.id, { onDelete: "cascade" }),
     mode: text("mode", { enum: ["dry", "live"] }).notNull(),
     /** How the run was started. */
-    trigger: text("trigger", { enum: ["manual", "webhook"] }).notNull().default("manual"),
+    trigger: text("trigger", { enum: ["manual", "webhook", "schedule"] })
+      .notNull()
+      .default("manual"),
     deploymentId: text("deployment_id"),
+    scheduleId: text("schedule_id"),
     status: text("status", { enum: ["running", "succeeded", "failed"] }).notNull(),
     temporalWorkflowId: text("temporal_workflow_id").notNull(),
     error: text("error"),
@@ -72,6 +75,29 @@ export const deployments = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("deployments_workflow_idx").on(t.workflowId)],
+);
+
+/**
+ * A workflow set to run on a cron schedule (the blueprint's "background service"
+ * deployment form). The API's in-process scheduler fires these.
+ */
+export const schedules = pgTable(
+  "schedules",
+  {
+    id: text("id").primaryKey(),
+    workflowId: text("workflow_id")
+      .notNull()
+      .references(() => workflows.id, { onDelete: "cascade" }),
+    cron: text("cron").notNull(),
+    timezone: text("timezone").notNull().default("UTC"),
+    status: text("status", { enum: ["active", "paused"] }).notNull().default("active"),
+    graphSnapshot: jsonb("graph_snapshot").$type<WorkflowGraph>().notNull(),
+    nextRunAt: timestamp("next_run_at", { withTimezone: true }),
+    lastRunAt: timestamp("last_run_at", { withTimezone: true }),
+    runCount: integer("run_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("schedules_workflow_idx").on(t.workflowId)],
 );
 
 export const nodeRuns = pgTable(

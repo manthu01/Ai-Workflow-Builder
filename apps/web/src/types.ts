@@ -73,6 +73,18 @@ export interface Deployment {
   createdAt: string;
 }
 
+export interface Schedule {
+  id: string;
+  workflowId: string;
+  cron: string;
+  timezone: string;
+  status: "active" | "paused";
+  nextRunAt: string | null;
+  lastRunAt: string | null;
+  runCount: number;
+  createdAt: string;
+}
+
 export interface NodeCatalogEntry {
   kind: NodeKind;
   title: string;

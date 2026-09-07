@@ -25,12 +25,23 @@ export const TriggerConfig = z.object({
   samplePayload: z.string().default("{}"),
 });
 
+/**
+ * Complexity tiers the compiler assigns to LLM steps; each maps to a concrete
+ * model at execution time (configurable via env). Keeps graphs free of specific
+ * model ids.
+ */
+export const MODEL_TIERS = ["fast", "balanced", "deep"] as const;
+export type ModelTier = (typeof MODEL_TIERS)[number];
+
 export const LlmConfig = z.object({
   /** Prompt text. May contain {{ node_id.path }} references to upstream output. */
   prompt: z.string().min(1),
   /** "text" returns a string, "json" asks the model for a JSON object. */
   output: z.enum(["text", "json"]).default("text"),
-  model: z.string().optional(),
+  /** Which model tier to route this step to. */
+  tier: z.enum(MODEL_TIERS).default("balanced"),
+  /** Explicit model id; overrides the tier when set. */
+  model: z.string().default(""),
 });
 
 export const HttpRequestConfig = z.object({
@@ -153,6 +164,14 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
         widget: "select",
         options: ["text", "json"],
         default: "text",
+      },
+      {
+        key: "tier",
+        label: "Model tier",
+        widget: "select",
+        options: ["fast", "balanced", "deep"],
+        default: "balanced",
+        help: "fast = cheap/simple, balanced = default, deep = hard reasoning.",
       },
     ],
   },

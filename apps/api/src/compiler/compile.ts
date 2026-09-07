@@ -1,12 +1,15 @@
 import {
   WorkflowGraphSchema,
   validateGraph,
+  routeCompilerTier,
+  resolveModel,
   type WorkflowGraph,
   type GraphIssue,
+  type ModelTier,
 } from "@awb/core";
 import type { CompilerGraph } from "./schema.js";
 import { autoLayout } from "./layout.js";
-import { env } from "../env.js";
+import { env, tierModels } from "../env.js";
 import type { WorkflowCompilerProvider } from "../llm/provider.js";
 import { StubCompilerProvider } from "../llm/stub.js";
 import { AnthropicCompilerProvider } from "../llm/anthropic.js";
@@ -62,21 +65,27 @@ export interface CompileResult {
   provider: string;
   warnings: GraphIssue[];
   attempts: number;
+  routing: { tier: ModelTier; model: string; reasons: string[] };
 }
 
 /**
  * Compile a natural-language request into a validated, laid-out workflow graph.
- * Retries once with the validation errors fed back to the provider.
+ * Routes the request to a model tier by complexity, then retries once with the
+ * validation errors fed back to the provider.
  */
 export async function compileWorkflow(request: string): Promise<CompileResult> {
   const provider = getCompilerProvider();
+  const route = routeCompilerTier(request);
+  const model =
+    env.COMPILER_MODEL || resolveModel(route.tier, undefined, tierModels);
+
   const maxAttempts = 2;
   let priorIssues: string[] | undefined;
   let lastGraph: WorkflowGraph | undefined;
   let lastErrors: GraphIssue[] = [];
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const draft = await provider.generate(request, { priorIssues });
+    const draft = await provider.generate(request, { priorIssues, model });
     let graph: WorkflowGraph;
     try {
       graph = autoLayout(toWorkflowGraph(draft));
@@ -97,6 +106,7 @@ export async function compileWorkflow(request: string): Promise<CompileResult> {
         provider: provider.name,
         warnings: issues.filter((i) => i.level === "warning"),
         attempts: attempt,
+        routing: { tier: route.tier, model, reasons: route.reasons },
       };
     }
     priorIssues = errors.map((i) => (i.nodeId ? `[${i.nodeId}] ${i.message}` : i.message));

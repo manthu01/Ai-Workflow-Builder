@@ -106,8 +106,19 @@ green/red, edges animate — and the final run is persisted in the background
 whether or not anyone is watching. Opening a stream for a finished run replays
 the stored result.
 
-## Roadmap (next milestones)
+## Milestone 5 — model routing + scheduled triggers (done)
 
-- Model routing by task complexity (Phase 2)
-- Scheduled triggers (cron) alongside webhooks
-- Then the blueprint's Expansion features
+- **Model routing** (Phase 2 "Model Selection") — a heuristic complexity router
+  scores the compile request (length, conditionals, step count, integrations,
+  reasoning verbs) and picks a tier → model: `fast` (Haiku), `balanced` (Sonnet),
+  `deep` (Opus). The compiler also assigns each `llm` node a tier, editable in
+  the inspector; tiers map to concrete models via env so graphs stay model-free.
+- **Scheduled triggers** (Phase 4 "background service") — a workflow can run on a
+  cron schedule. `POST /api/workflows/:id/schedule` snapshots the graph; the API's
+  in-process scheduler fires due schedules as `trigger=schedule` live runs with a
+  `{ scheduledFor, cron }` payload. Pause / resume / delete from the Deploy panel,
+  with cron presets and the browser's timezone.
+
+## Roadmap
+
+The blueprint's four core phases are implemented. Next: the "Expansion" feature list.

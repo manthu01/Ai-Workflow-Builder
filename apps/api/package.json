@@ -17,6 +17,7 @@
     "@awb/core": "*",
     "@hono/node-server": "^1.14.0",
     "@temporalio/client": "^1.11.6",
+    "cron-parser": "^5.10.0",
     "drizzle-orm": "^0.38.3",
     "hono": "^4.6.20",
     "nanoid": "^5.0.9",

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { LlmConfig, renderString } from "@awb/core";
-import { env } from "../env.js";
+import { LlmConfig, renderString, resolveModel } from "@awb/core";
+import { env, tierModels } from "../env.js";
 import type { NodeExecutor } from "./types.js";
 
 let client: Anthropic | undefined;
@@ -24,15 +24,18 @@ export const runLlm: NodeExecutor = async (node, ctx) => {
   const config = LlmConfig.parse(node.config);
   const prompt = renderString(config.prompt, ctx.outputs);
 
+  const routedModel = resolveModel(config.tier, config.model, tierModels);
   const live = ctx.mode === "live" || ctx.dryRunLlm === "live";
   if (!live) {
     return {
       output: mockAnswer(prompt, config.output),
-      logs: [`dry run: returned a mock ${config.output} answer (no model call)`],
+      logs: [
+        `dry run: mock ${config.output} answer (tier "${config.tier}" would use ${routedModel}, no call)`,
+      ],
     };
   }
 
-  const model = config.model ?? env.COMPILER_MODEL;
+  const model = routedModel;
   const response = await getClient().messages.create({
     model,
     max_tokens: 2000,

@@ -13,8 +13,9 @@ export interface StartRunOptions {
   workflowId: string;
   graph: WorkflowGraph;
   mode: "dry" | "live";
-  trigger?: "manual" | "webhook";
+  trigger?: "manual" | "webhook" | "schedule";
   deploymentId?: string;
+  scheduleId?: string;
   triggerPayload?: unknown;
 }
 
@@ -40,6 +41,7 @@ export async function startRun(opts: StartRunOptions): Promise<StartedRun> {
     mode: opts.mode,
     trigger: opts.trigger ?? "manual",
     deploymentId: opts.deploymentId ?? null,
+    scheduleId: opts.scheduleId ?? null,
     status: "running",
     temporalWorkflowId,
   });

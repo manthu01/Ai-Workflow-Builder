@@ -39,6 +39,7 @@ workflowRoutes.post("/compile", async (c) => {
       provider: result.provider,
       attempts: result.attempts,
       warnings: result.warnings,
+      routing: result.routing,
     });
   } catch (err) {
     if (err instanceof CompileError) {

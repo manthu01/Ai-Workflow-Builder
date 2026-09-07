@@ -7,6 +7,8 @@ import { workflowRoutes } from "./routes/workflows.js";
 import { runRoutes } from "./routes/runs.js";
 import { connectionRoutes } from "./routes/connections.js";
 import { deploymentRoutes, hookRoutes } from "./routes/deployments.js";
+import { scheduleRoutes } from "./routes/schedules.js";
+import { startScheduler } from "./scheduler.js";
 
 const app = new Hono();
 
@@ -24,8 +26,10 @@ app.route("/api/connections", connectionRoutes);
 app.route("/api/hooks", hookRoutes);
 app.route("/api", runRoutes);
 app.route("/api", deploymentRoutes);
+app.route("/api", scheduleRoutes);
 
 const port = env.API_PORT;
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`[api] listening on http://localhost:${info.port}  (compiler: ${env.COMPILER_MODE})`);
+  startScheduler();
 });
