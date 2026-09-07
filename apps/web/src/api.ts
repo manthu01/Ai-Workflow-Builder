@@ -62,10 +62,54 @@ export const api = {
     ),
 
   run: (id: string, mode: "dry" | "live") =>
-    request<{ run: { id: string; status: string; mode: string }; result: RunResult }>(
-      `/api/workflows/${id}/runs`,
-      { method: "POST", body: JSON.stringify({ mode }) },
-    ),
+    request<{ runId: string; mode: "dry" | "live" }>(`/api/workflows/${id}/runs`, {
+      method: "POST",
+      body: JSON.stringify({ mode }),
+    }),
+
+  /**
+   * Streams live progress for a run. Calls `onProgress` for each snapshot and
+   * `onDone` with the final result, then closes. Returns a cancel function.
+   */
+  streamRun: (
+    runId: string,
+    handlers: {
+      onProgress: (p: { status: string; nodes: RunResult["nodes"] }) => void;
+      onDone: (r: RunResult) => void;
+      onError: (msg: string) => void;
+    },
+  ): (() => void) => {
+    const es = new EventSource(`/api/runs/${runId}/stream`);
+    let closed = false;
+    const close = () => {
+      if (!closed) {
+        closed = true;
+        es.close();
+      }
+    };
+    es.addEventListener("progress", (e) => {
+      try {
+        handlers.onProgress(JSON.parse((e as MessageEvent).data));
+      } catch {
+        /* ignore malformed frame */
+      }
+    });
+    es.addEventListener("done", (e) => {
+      try {
+        handlers.onDone(JSON.parse((e as MessageEvent).data));
+      } catch {
+        /* ignore */
+      }
+      close();
+    });
+    es.addEventListener("error", () => {
+      if (!closed) {
+        handlers.onError("lost connection to the run stream");
+        close();
+      }
+    });
+    return close;
+  },
 
   listConnections: () => request<{ connections: Connection[] }>("/api/connections"),
 
@@ -100,8 +144,8 @@ export const api = {
 
   fireHook: (url: string, payload: unknown) =>
     // Use the dev proxy path rather than the absolute PUBLIC_URL.
-    request<{ runId: string; status: string; result: RunResult }>(
-      url.replace(/^https?:\/\/[^/]+/, ""),
-      { method: "POST", body: JSON.stringify(payload) },
-    ),
+    request<{ runId: string }>(url.replace(/^https?:\/\/[^/]+/, ""), {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };

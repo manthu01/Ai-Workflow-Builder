@@ -93,7 +93,7 @@ hookRoutes.post("/:token", async (c) => {
     .where(eq(schema.deployments.id, dep.id));
 
   try {
-    const { runId, result } = await startRun({
+    const { runId, done } = await startRun({
       workflowId: dep.workflowId,
       graph: dep.graphSnapshot,
       mode: "live",
@@ -101,7 +101,8 @@ hookRoutes.post("/:token", async (c) => {
       deploymentId: dep.id,
       triggerPayload: payload,
     });
-    return c.json({ runId, status: result.status, result }, 202);
+    void done.catch(() => {}); // finalized in the background
+    return c.json({ runId }, 202);
   } catch (err) {
     return c.json({ error: `engine error: ${(err as Error).message}` }, 502);
   }

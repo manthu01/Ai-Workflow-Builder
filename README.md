@@ -96,9 +96,18 @@ npm run infra:down            # stop containers
   deployments can be paused, deleted, and test-fired from the Deploy panel.
 - Failed-node errors now surface the real cause instead of Temporal's wrapper.
 
+## Milestone 4 — live run streaming (done)
+
+Runs no longer block. `POST …/runs` returns a `runId` immediately; the engine
+workflow exposes its per-node state through a Temporal query, and
+`GET /api/runs/:id/stream` (Server-Sent Events) relays it. The canvas lights up
+node-by-node as the engine executes — the active node pulses, finished nodes go
+green/red, edges animate — and the final run is persisted in the background
+whether or not anyone is watching. Opening a stream for a finished run replays
+the stored result.
+
 ## Roadmap (next milestones)
 
-- Live run progress streaming (Temporal signals/queries → WebSocket) for a real-time debugger
 - Model routing by task complexity (Phase 2)
 - Scheduled triggers (cron) alongside webhooks
 - Then the blueprint's Expansion features

@@ -281,6 +281,14 @@ textarea {
 .step-node.failed { border-color: var(--fail); }
 .step-node.skipped { border-color: var(--skip); }
 .step-node.invalid { border-color: var(--warn); }
+.step-node.running {
+  border-color: var(--accent);
+  animation: node-pulse 1s ease-in-out infinite;
+}
+@keyframes node-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+  50% { box-shadow: 0 0 0 6px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
 .step-node.selected { border-color: var(--accent); box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
 .step-node .kind { font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); display: flex; align-items: center; gap: 6px; }
 .step-node .label { font-weight: 600; margin-top: 2px; }

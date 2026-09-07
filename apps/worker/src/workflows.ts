@@ -1,9 +1,11 @@
-import { proxyActivities } from "@temporalio/workflow";
+import { proxyActivities, defineQuery, setHandler } from "@temporalio/workflow";
 import {
   topologicalOrder,
   upstreamOf,
+  RunProgressQueryName,
   type WorkflowExecutionInput,
   type RunResult,
+  type RunProgress,
   type NodeRunResult,
 } from "@awb/core";
 import type * as activities from "./activities.js";
@@ -24,6 +26,8 @@ function rootMessage(err: unknown): string {
   return msg;
 }
 
+const getRunProgress = defineQuery<RunProgress>(RunProgressQueryName);
+
 const { executeNode } = proxyActivities<typeof activities>({
   startToCloseTimeout: "2 minutes",
   retry: {
@@ -37,7 +41,8 @@ const { executeNode } = proxyActivities<typeof activities>({
  * The stateful execution engine (blueprint Phase 3). Walks the DAG in
  * topological order, running each node as its own activity so Temporal tracks
  * per-node state and retries failures in isolation. A failed node marks its
- * descendants as skipped; the rest of the graph still runs.
+ * descendants as skipped; the rest of the graph still runs. Live progress is
+ * exposed via the `getRunProgress` query so callers can stream the canvas.
  */
 export async function executeWorkflow(input: WorkflowExecutionInput): Promise<RunResult> {
   const { graph, runId, workflowId, mode } = input;
@@ -48,6 +53,12 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
   const nodeResults: NodeRunResult[] = [];
   const notCompleted = new Set<string>();
   let anyFailed = false;
+
+  setHandler(getRunProgress, () => ({
+    status: anyFailed ? "failed" : "running",
+    nodes: nodeResults,
+    startedAt,
+  }));
 
   for (const nodeId of order) {
     const node = graph.nodes.find((n) => n.id === nodeId);
@@ -70,6 +81,17 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
       continue;
     }
 
+    // Publish a "running" entry so the canvas can highlight the active node.
+    const entry: NodeRunResult = {
+      nodeId,
+      status: "running",
+      input: inputSlice,
+      logs: [],
+      attempts: 1,
+      startedAt: new Date().toISOString(),
+    };
+    nodeResults.push(entry);
+
     try {
       const res = await executeNode({
         node,
@@ -79,10 +101,8 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
         triggerPayload: input.triggerPayload,
       });
       outputs[nodeId] = res.output;
-      nodeResults.push({
-        nodeId,
+      Object.assign(entry, {
         status: "succeeded",
-        input: inputSlice,
         output: res.output,
         logs: res.logs,
         attempts: res.attempts,
@@ -92,12 +112,9 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
     } catch (err) {
       anyFailed = true;
       notCompleted.add(nodeId);
-      nodeResults.push({
-        nodeId,
+      Object.assign(entry, {
         status: "failed",
-        input: inputSlice,
         error: rootMessage(err),
-        logs: [],
         attempts: 3,
         finishedAt: new Date().toISOString(),
       });

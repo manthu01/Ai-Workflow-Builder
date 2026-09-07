@@ -49,6 +49,15 @@ export type NodeRunResult = z.infer<typeof NodeRunResultSchema>;
 export const RunStatus = z.enum(["running", "succeeded", "failed"]);
 export type RunStatus = z.infer<typeof RunStatus>;
 
+/** Temporal query name the engine workflow answers with a live progress snapshot. */
+export const RunProgressQueryName = "getRunProgress";
+
+export interface RunProgress {
+  status: RunStatus;
+  nodes: NodeRunResult[];
+  startedAt: string;
+}
+
 export const RunResultSchema = z.object({
   runId: z.string(),
   workflowId: z.string(),

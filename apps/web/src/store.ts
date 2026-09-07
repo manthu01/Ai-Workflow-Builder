@@ -64,11 +64,53 @@ interface AppState {
 }
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
+let activeStream: (() => void) | null = null;
 
 const rand = () => Math.random().toString(36).slice(2, 7);
 
 export const useApp = create<AppState>((set, get) => {
   /** Apply a graph mutation locally and schedule a debounced save. */
+  /** Open an SSE stream for a run and pipe progress into `run` state. */
+  const streamInto = (
+    runId: string,
+    meta: { workflowId: string; mode: "dry" | "live" },
+    label: string,
+  ) => {
+    activeStream?.();
+    set({ running: true, run: null, error: null });
+    activeStream = api.streamRun(runId, {
+      onProgress: (p) => {
+        set({
+          run: {
+            runId,
+            workflowId: meta.workflowId,
+            mode: meta.mode,
+            status: p.status as RunResult["status"],
+            nodes: p.nodes,
+            startedAt: new Date().toISOString(),
+          },
+        });
+      },
+      onDone: (result) => {
+        const ok = result.nodes.filter((n) => n.status === "succeeded").length;
+        set((s) => ({
+          run: { ...result, runId, workflowId: meta.workflowId, mode: meta.mode },
+          running: false,
+          chat: [
+            ...s.chat,
+            {
+              role: "system",
+              text: `${label} ${result.status} - ${ok}/${result.nodes.length} nodes ok.`,
+            },
+          ],
+        }));
+        activeStream = null;
+        void get().loadDeployments();
+      },
+      onError: (msg) => set({ running: false, error: msg }),
+    });
+  };
+
   const mutate = (fn: (g: WorkflowGraph) => WorkflowGraph) => {
     const wf = get().workflow;
     if (!wf) return;
@@ -104,10 +146,13 @@ export const useApp = create<AppState>((set, get) => {
     },
 
     compile: async (prompt) => {
+      activeStream?.();
+      activeStream = null;
       set((s) => ({
         compiling: true,
         error: null,
         run: null,
+        running: false,
         selectedNodeId: null,
         chat: [...s.chat, { role: "user", text: prompt }],
       }));
@@ -148,18 +193,8 @@ export const useApp = create<AppState>((set, get) => {
       }
       set({ running: true, error: null, run: null });
       try {
-        const res = await api.run(wf.id, mode);
-        set((s) => ({
-          run: res.result,
-          running: false,
-          chat: [
-            ...s.chat,
-            {
-              role: "system",
-              text: `${mode === "dry" ? "Dry run" : "Live run"} ${res.result.status} - ${res.result.nodes.filter((n) => n.status === "succeeded").length}/${res.result.nodes.length} nodes ok.`,
-            },
-          ],
-        }));
+        const { runId } = await api.run(wf.id, mode);
+        streamInto(runId, { workflowId: wf.id, mode }, mode === "dry" ? "Dry run" : "Live run");
       } catch (err) {
         const e = err as Error;
         set((s) => ({
@@ -323,22 +358,15 @@ export const useApp = create<AppState>((set, get) => {
     },
 
     fireHook: async (url, payload) => {
+      const wf = get().workflow;
       set({ running: true, error: null, run: null });
       try {
-        const { result } = await api.fireHook(url, payload);
-        const ok = result.nodes.filter((n) => n.status === "succeeded").length;
-        set((s) => ({
-          run: result,
-          running: false,
-          chat: [
-            ...s.chat,
-            {
-              role: "system",
-              text: `Webhook fired - live run ${result.status} (${ok}/${result.nodes.length} nodes ok).`,
-            },
-          ],
-        }));
-        await get().loadDeployments();
+        const { runId } = await api.fireHook(url, payload);
+        streamInto(
+          runId,
+          { workflowId: wf?.id ?? "", mode: "live" },
+          "Webhook fired - live run",
+        );
       } catch (err) {
         set({ running: false, error: (err as Error).message });
       }

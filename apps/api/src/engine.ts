@@ -20,12 +20,15 @@ export interface StartRunOptions {
 
 export interface StartedRun {
   runId: string;
-  result: RunResult;
+  temporalWorkflowId: string;
+  /** Resolves when the engine finishes; the run + node rows are persisted by then. */
+  done: Promise<RunResult>;
 }
 
 /**
- * Starts one Temporal execution of a graph, waits for it, and persists the run
- * plus its per-node rows. Shared by manual runs and webhook-triggered runs.
+ * Starts one Temporal execution of a graph. Returns immediately with a handle to
+ * the run; the final run + per-node rows are persisted in the background when
+ * the engine finishes (whether or not anyone awaits `done`).
  */
 export async function startRun(opts: StartRunOptions): Promise<StartedRun> {
   const runId = newId("run");
@@ -50,48 +53,66 @@ export async function startRun(opts: StartRunOptions): Promise<StartedRun> {
     triggerPayload: opts.triggerPayload,
   };
 
-  let result: RunResult;
-  try {
-    const client = await getTemporalClient();
-    const handle = await client.workflow.start(WorkflowExecuteWorkflowType, {
-      taskQueue: env.TEMPORAL_TASK_QUEUE,
-      workflowId: temporalWorkflowId,
-      args: [input],
+  const client = await getTemporalClient();
+  const handle = await client.workflow.start(WorkflowExecuteWorkflowType, {
+    taskQueue: env.TEMPORAL_TASK_QUEUE,
+    workflowId: temporalWorkflowId,
+    args: [input],
+  });
+
+  const done = handle
+    .result()
+    .then(async (result) => {
+      await finalizeRun(runId, result);
+      return result;
+    })
+    .catch(async (err) => {
+      await db
+        .update(schema.runs)
+        .set({ status: "failed", error: (err as Error).message, finishedAt: new Date() })
+        .where(eq(schema.runs.id, runId));
+      throw err;
     });
-    result = await handle.result();
-  } catch (err) {
+
+  return { runId, temporalWorkflowId, done };
+}
+
+let finalizing = new Set<string>();
+
+/** Persist the final run status + per-node rows exactly once. */
+export async function finalizeRun(runId: string, result: RunResult): Promise<void> {
+  if (finalizing.has(runId)) return;
+  finalizing.add(runId);
+  try {
+    const [run] = await db.select().from(schema.runs).where(eq(schema.runs.id, runId));
+    if (!run || run.status !== "running") return; // already finalized
+
     await db
       .update(schema.runs)
-      .set({ status: "failed", error: (err as Error).message, finishedAt: new Date() })
+      .set({
+        status: result.status,
+        finishedAt: result.finishedAt ? new Date(result.finishedAt) : new Date(),
+      })
       .where(eq(schema.runs.id, runId));
-    throw err;
+
+    if (result.nodes.length > 0) {
+      await db.insert(schema.nodeRuns).values(
+        result.nodes.map((n) => ({
+          id: newId("nr"),
+          runId,
+          nodeId: n.nodeId,
+          status: n.status,
+          input: n.input ?? null,
+          output: n.output ?? null,
+          error: n.error ?? null,
+          logs: n.logs ?? [],
+          attempts: n.attempts ?? 1,
+          startedAt: n.startedAt ? new Date(n.startedAt) : null,
+          finishedAt: n.finishedAt ? new Date(n.finishedAt) : null,
+        })),
+      );
+    }
+  } finally {
+    finalizing.delete(runId);
   }
-
-  await db
-    .update(schema.runs)
-    .set({
-      status: result.status,
-      finishedAt: result.finishedAt ? new Date(result.finishedAt) : new Date(),
-    })
-    .where(eq(schema.runs.id, runId));
-
-  if (result.nodes.length > 0) {
-    await db.insert(schema.nodeRuns).values(
-      result.nodes.map((n) => ({
-        id: newId("nr"),
-        runId,
-        nodeId: n.nodeId,
-        status: n.status,
-        input: n.input ?? null,
-        output: n.output ?? null,
-        error: n.error ?? null,
-        logs: n.logs ?? [],
-        attempts: n.attempts ?? 1,
-        startedAt: n.startedAt ? new Date(n.startedAt) : null,
-        finishedAt: n.finishedAt ? new Date(n.finishedAt) : null,
-      })),
-    );
-  }
-
-  return { runId, result };
 }
