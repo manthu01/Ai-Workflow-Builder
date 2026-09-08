@@ -5,6 +5,7 @@ import { runLlm } from "./llm.js";
 import { runHttpRequest } from "./httpRequest.js";
 import { runTransform } from "./transform.js";
 import { runBranch } from "./branch.js";
+import { runLoop } from "./loop.js";
 import { runSlackPost } from "./slackPost.js";
 
 export const NODE_EXECUTORS: Record<NodeKind, NodeExecutor> = {
@@ -13,6 +14,7 @@ export const NODE_EXECUTORS: Record<NodeKind, NodeExecutor> = {
   http_request: runHttpRequest,
   transform: runTransform,
   branch: runBranch,
+  loop: runLoop,
   // Approval gates are handled inline by the engine workflow (they wait on a
   // signal), never dispatched as an activity.
   approval: async () => {

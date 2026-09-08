@@ -49,7 +49,14 @@ const { healNode } = proxyActivities<typeof activities>({
   retry: { maximumAttempts: 1 },
 });
 
-const HEALABLE = new Set(["http_request", "slack_post", "llm", "transform", "branch"]);
+const HEALABLE = new Set([
+  "http_request",
+  "slack_post",
+  "llm",
+  "transform",
+  "branch",
+  "loop",
+]);
 
 /**
  * The stateful execution engine (blueprint Phase 3 + Expansion #4). Runs the DAG

@@ -45,6 +45,8 @@ RULES
 9b. Insert an "approval" node before an irreversible or sensitive action
    (sending money, deleting data, emailing customers) when the request asks for
    a review/approval step or clearly implies one.
+9c. Use a "loop" node for "for each item in <list>" / "map over" requests: set
+   "items" to the array expression and "expression" to the per-item JS.
 10. Prefer a dedicated node (slack_post) over http_request when one fits.
 11. For "trigger", pick the event: "webhook" for "when X happens in <service>",
    "schedule" for "every day / hourly", "manual" otherwise. Always include a

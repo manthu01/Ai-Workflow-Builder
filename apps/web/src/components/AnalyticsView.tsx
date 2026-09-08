@@ -8,6 +8,7 @@ const KIND_LABEL: Record<string, string> = {
   http_request: "HTTP Request",
   transform: "Transform",
   branch: "Branch",
+  loop: "Loop",
   approval: "Approval",
   slack_post: "Post to Slack",
 };

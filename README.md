@@ -168,9 +168,17 @@ and retries the node once; a heal that works shows as `succeeded` with a
 doesn't leaves the node failed with the reason logged. Healable kinds:
 `http_request`, `slack_post`, `llm`, `transform`, `branch`. Needs `ANTHROPIC_API_KEY`.
 
+## Loop / iterator node (done)
+
+A **`loop` node** maps a per-item JS expression over an array from upstream:
+`items` resolves to the array, `expression` runs once per element with `item`,
+`index`, and `input` in scope, and the output is `{ results, count }` for
+downstream nodes to aggregate.
+
 ## Status
 
 All four blueprint core phases plus Expansion #4 (branching/parallel), #1
-(approvals), #5 (version control), #7 (analytics dashboard), and #2 (self-healing)
-are implemented. Remaining: #3 OpenAPI ingestion, #6 local execution, #8 template
-marketplace, #9 sandboxed code node, #10 asset generator.
+(approvals), #5 (version control), #7 (analytics dashboard), #2 (self-healing),
+and a loop/iterator node are implemented. Remaining Expansion features: #3 OpenAPI
+ingestion, #6 local execution, #8 template marketplace, #9 sandboxed code node,
+#10 asset generator.

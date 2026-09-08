@@ -11,6 +11,7 @@ export const NODE_KINDS = [
   "http_request",
   "transform",
   "branch",
+  "loop",
   "approval",
   "slack_post",
 ] as const;
@@ -75,6 +76,16 @@ export const BranchConfig = z.object({
   expression: z.string().min(1),
 });
 
+export const LoopConfig = z.object({
+  /** JS expression against `input` that must evaluate to an array. */
+  items: z.string().min(1),
+  /**
+   * JS expression run once per element, with `item`, `index`, and `input` in
+   * scope. The node's output is `{ results: [...], count }`.
+   */
+  expression: z.string().min(1),
+});
+
 export const ApprovalConfig = z.object({
   /** Message shown to the approver. May contain {{ node_id.field }} templates. */
   message: z.string().min(1),
@@ -97,6 +108,7 @@ export const NODE_CONFIG_SCHEMAS = {
   http_request: HttpRequestConfig,
   transform: TransformConfig,
   branch: BranchConfig,
+  loop: LoopConfig,
   approval: ApprovalConfig,
   slack_post: SlackPostConfig,
 } satisfies Record<NodeKind, z.ZodTypeAny>;
@@ -263,6 +275,34 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
         default: "true",
         placeholder: "input.trigger.pull_request.merged === true",
         help: "JS expression. Truthy takes the 'true' path, falsy the 'false' path.",
+      },
+    ],
+  },
+  loop: {
+    kind: "loop",
+    title: "Loop (map over a list)",
+    description:
+      "Runs a per-item expression over an array from upstream and collects the results.",
+    isTrigger: false,
+    hasSideEffects: false,
+    configFields:
+      "items: string (JS expression -> array); expression: string (JS per item, with `item`/`index`/`input`)",
+    fields: [
+      {
+        key: "items",
+        label: "List",
+        widget: "text",
+        default: "input.trigger.items",
+        placeholder: "input.trigger.pull_requests",
+        help: "JS expression that resolves to an array.",
+      },
+      {
+        key: "expression",
+        label: "Per-item expression",
+        widget: "textarea",
+        default: "item",
+        placeholder: "{ id: item.id, title: item.title.trim() }",
+        help: "`item`, `index`, and `input` are in scope. Output is { results, count }.",
       },
     ],
   },

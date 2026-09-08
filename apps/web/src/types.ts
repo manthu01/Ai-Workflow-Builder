@@ -4,6 +4,7 @@ export type NodeKind =
   | "http_request"
   | "transform"
   | "branch"
+  | "loop"
   | "approval"
   | "slack_post";
 
