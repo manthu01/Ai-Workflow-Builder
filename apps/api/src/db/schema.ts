@@ -4,6 +4,7 @@ import {
   text,
   timestamp,
   integer,
+  boolean,
   index,
 } from "drizzle-orm/pg-core";
 import type { WorkflowGraph } from "@awb/core";
@@ -16,6 +17,8 @@ export const workflows = pgTable("workflows", {
   graph: jsonb("graph").$type<WorkflowGraph>().notNull(),
   /** The natural-language prompt this workflow was compiled from, if any. */
   sourcePrompt: text("source_prompt"),
+  /** Expansion #2: let the engine repair a failed node's config and retry once. */
+  selfHeal: boolean("self_heal").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

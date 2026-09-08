@@ -2,6 +2,9 @@ import { Context } from "@temporalio/activity";
 import type { WorkflowNode } from "@awb/core";
 import { NODE_EXECUTORS, type NodeExecCtx } from "./nodes/index.js";
 
+export { healNode } from "./heal.js";
+export type { HealNodeParams, HealNodeOutput } from "./heal.js";
+
 export interface ExecuteNodeParams {
   node: WorkflowNode;
   mode: "dry" | "live";

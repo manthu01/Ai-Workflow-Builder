@@ -158,10 +158,19 @@ executions), a 14-day stacked runs-over-time chart, a per-node-kind performance
 table (count, success rate, p50/p95 latency), a failures-by-node bar chart, and a
 recent-runs table. `node_runs` now carries the node `kind` for grouping.
 
+## Expansion #2 — AI self-healing (done)
+
+Per-workflow **Self-heal** toggle (top bar). When on, a node that fails after its
+Temporal retries is sent — its kind, config, the error, and the input it
+received — to the model, which returns a corrected config. The engine applies it
+and retries the node once; a heal that works shows as `succeeded` with a
+`self-healed` badge and a was → now config diff in the run panel, a heal that
+doesn't leaves the node failed with the reason logged. Healable kinds:
+`http_request`, `slack_post`, `llm`, `transform`, `branch`. Needs `ANTHROPIC_API_KEY`.
+
 ## Status
 
 All four blueprint core phases plus Expansion #4 (branching/parallel), #1
-(approvals), #5 (version control), and #7 (analytics dashboard) are implemented.
-Remaining Expansion features (#2 self-healing, #3 OpenAPI ingestion, #6 local
-execution, #8 template marketplace, #9 sandboxed code node, #10 asset generator)
-are unstarted.
+(approvals), #5 (version control), #7 (analytics dashboard), and #2 (self-healing)
+are implemented. Remaining: #3 OpenAPI ingestion, #6 local execution, #8 template
+marketplace, #9 sandboxed code node, #10 asset generator.

@@ -18,6 +18,7 @@ export interface StartRunOptions {
   deploymentId?: string;
   scheduleId?: string;
   triggerPayload?: unknown;
+  selfHeal?: boolean;
 }
 
 export interface StartedRun {
@@ -57,6 +58,7 @@ export async function startRun(opts: StartRunOptions): Promise<StartedRun> {
     graph: opts.graph,
     dryRunLlm: env.DRY_RUN_LLM,
     triggerPayload: opts.triggerPayload,
+    selfHeal: opts.selfHeal ?? false,
   };
 
   const client = await getTemporalClient();

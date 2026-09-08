@@ -19,6 +19,8 @@ export interface WorkflowExecutionInput {
    * node's output instead of its configured sample payload.
    */
   triggerPayload?: unknown;
+  /** When true, a failed node's config is sent to the model for a repair + one retry. */
+  selfHeal?: boolean;
 }
 
 export const NodeRunStatus = z.enum([
@@ -56,6 +58,15 @@ export const NodeRunResultSchema = z.object({
   startedAt: z.string().optional(),
   finishedAt: z.string().optional(),
   attempts: z.number().default(1),
+  /** Set when the engine repaired this node's config and retried it. */
+  healed: z
+    .object({
+      explanation: z.string(),
+      from: z.record(z.string(), z.unknown()),
+      to: z.record(z.string(), z.unknown()),
+      succeeded: z.boolean(),
+    })
+    .optional(),
 });
 export type NodeRunResult = z.infer<typeof NodeRunResultSchema>;
 

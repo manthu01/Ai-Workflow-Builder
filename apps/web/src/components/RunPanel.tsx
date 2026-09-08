@@ -52,6 +52,22 @@ function NodeRunCard({ node }: { node: NodeRunResult }) {
         {node.attempts > 1 && <span className="badge">{node.attempts} attempts</span>}
       </summary>
       {node.status === "awaiting" && <ApprovalGate node={node} />}
+      {node.healed && (
+        <div className="heal-box">
+          <strong style={{ color: node.healed.succeeded ? "var(--ok)" : "var(--warn)" }}>
+            {node.healed.succeeded ? "Self-healed" : "Self-heal failed"}
+          </strong>
+          <div>{node.healed.explanation}</div>
+          <pre>
+            <span style={{ color: "var(--muted)" }}>was </span>
+            {JSON.stringify(node.healed.from, null, 2)}
+          </pre>
+          <pre>
+            <span style={{ color: "var(--muted)" }}>now </span>
+            {JSON.stringify(node.healed.to, null, 2)}
+          </pre>
+        </div>
+      )}
       {node.logs.map((l, i) => (
         <div key={i} className="logline">
           · {l}

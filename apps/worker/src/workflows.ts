@@ -44,6 +44,13 @@ const { executeNode } = proxyActivities<typeof activities>({
   retry: { maximumAttempts: 3, initialInterval: "1s", backoffCoefficient: 2 },
 });
 
+const { healNode } = proxyActivities<typeof activities>({
+  startToCloseTimeout: "1 minute",
+  retry: { maximumAttempts: 1 },
+});
+
+const HEALABLE = new Set(["http_request", "slack_post", "llm", "transform", "branch"]);
+
 /**
  * The stateful execution engine (blueprint Phase 3 + Expansion #4). Runs the DAG
  * in dependency order, executing every node whose inputs are ready **in
@@ -185,14 +192,79 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
             finishedAt: res.finishedAt,
           };
         } catch (err) {
+          const errMsg = rootMessage(err);
+          let healLog: string[] = [];
+
+          // Self-heal: ask the model to repair the config, then retry once.
+          if (input.selfHeal && HEALABLE.has(n.kind)) {
+            const heal = await healNode({
+              kind: n.kind,
+              config: n.config,
+              error: errMsg,
+              input: slice,
+            });
+            healLog = [
+              heal.canFix
+                ? `self-heal: ${heal.explanation}`
+                : `self-heal could not fix this: ${heal.explanation}`,
+            ];
+            if (heal.canFix) {
+              const patched = { ...n, config: { ...n.config, ...heal.config } };
+              try {
+                const res2 = await executeNode({
+                  node: patched,
+                  mode,
+                  dryRunLlm: input.dryRunLlm,
+                  outputs,
+                  triggerPayload: input.triggerPayload,
+                });
+                return {
+                  nodeId: n.id,
+                  kind: n.kind,
+                  status: "succeeded",
+                  input: slice,
+                  output: res2.output,
+                  logs: [`self-healed: ${heal.explanation}`, ...res2.logs],
+                  attempts: (res2.attempts ?? 1) + 3,
+                  startedAt: res2.startedAt,
+                  finishedAt: res2.finishedAt,
+                  healed: {
+                    explanation: heal.explanation,
+                    from: n.config,
+                    to: patched.config,
+                    succeeded: true,
+                  },
+                };
+              } catch (err2) {
+                anyFailed = true;
+                return {
+                  nodeId: n.id,
+                  kind: n.kind,
+                  status: "failed",
+                  input: slice,
+                  error: rootMessage(err2),
+                  logs: [`self-heal attempted but the retry also failed: ${heal.explanation}`],
+                  attempts: 4,
+                  finishedAt: new Date().toISOString(),
+                  healed: {
+                    explanation: heal.explanation,
+                    from: n.config,
+                    to: patched.config,
+                    succeeded: false,
+                  },
+                };
+              }
+            }
+          }
+
           anyFailed = true;
           return {
             nodeId: n.id,
             kind: n.kind,
             status: "failed",
             input: slice,
-            error: rootMessage(err),
-            logs: [],
+            error: errMsg,
+            logs: healLog,
             attempts: 3,
             finishedAt: new Date().toISOString(),
           };

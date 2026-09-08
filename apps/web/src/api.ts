@@ -64,6 +64,12 @@ export const api = {
       body: JSON.stringify({ graph }),
     }),
 
+  setSelfHeal: (id: string, selfHeal: boolean) =>
+    request<{ workflow: WorkflowRecord }>(`/api/workflows/${id}`, {
+      method: "PUT",
+      body: JSON.stringify({ selfHeal }),
+    }),
+
   relayout: (id: string, graph: WorkflowGraph) =>
     request<{ workflow: WorkflowRecord; issues: GraphIssue[] }>(
       `/api/workflows/${id}/relayout`,

@@ -12,6 +12,7 @@ export function Toolbar() {
   const saving = useApp((s) => s.saving);
   const issues = useApp((s) => s.issues);
   const setConnectionsOpen = useApp((s) => s.setConnectionsOpen);
+  const toggleSelfHeal = useApp((s) => s.toggleSelfHeal);
   const [menuOpen, setMenuOpen] = useState(false);
 
   const errors = issues.filter((i) => i.level === "error").length;
@@ -45,6 +46,14 @@ export function Toolbar() {
         Auto-layout
       </button>
       <button onClick={() => setConnectionsOpen(true)}>Connections</button>
+      <button
+        disabled={disabled}
+        className={workflow?.selfHeal ? "primary" : ""}
+        title="On a node failure, ask the model to fix its config and retry once"
+        onClick={() => void toggleSelfHeal()}
+      >
+        Self-heal {workflow?.selfHeal ? "on" : "off"}
+      </button>
 
       <span className="save-state">
         {saving ? "Saving…" : workflow ? "Saved" : ""}

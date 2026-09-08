@@ -46,6 +46,7 @@ interface AppState {
   selectNode: (id: string | null) => void;
 
   approve: (nodeId: string, decision: "approve" | "reject", note?: string) => Promise<void>;
+  toggleSelfHeal: () => Promise<void>;
 
   loadConnections: () => Promise<void>;
   createConnection: (body: {
@@ -231,6 +232,21 @@ export const useApp = create<AppState>((set, get) => {
     },
 
     selectNode: (id) => set({ selectedNodeId: id }),
+
+    toggleSelfHeal: async () => {
+      const wf = get().workflow;
+      if (!wf) return;
+      const next = !wf.selfHeal;
+      set({ workflow: { ...wf, selfHeal: next } });
+      try {
+        await api.setSelfHeal(wf.id, next);
+      } catch (err) {
+        set((s) => ({
+          error: (err as Error).message,
+          workflow: s.workflow ? { ...s.workflow, selfHeal: !next } : s.workflow,
+        }));
+      }
+    },
 
     approve: async (nodeId, decision, note) => {
       const run = get().run;

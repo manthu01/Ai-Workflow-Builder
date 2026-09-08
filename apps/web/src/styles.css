@@ -358,6 +358,27 @@ textarea {
   background: color-mix(in srgb, var(--warn) 12%, transparent);
 }
 .approval-msg { font-size: 13px; line-height: 1.4; }
+
+.heal-box {
+  border-top: 1px solid var(--border);
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+  background: color-mix(in srgb, var(--ok) 8%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.heal-box pre {
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 11px;
+  background: var(--bg);
+  border-radius: 4px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 .approval-gate input {
   font: inherit;
   font-size: 12px;

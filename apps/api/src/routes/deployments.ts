@@ -89,6 +89,10 @@ hookRoutes.post("/:token", async (c) => {
   if (dep.status !== "active") return c.json({ error: "webhook is paused" }, 409);
 
   const payload = await c.req.json().catch(() => ({}));
+  const [wf] = await db
+    .select({ selfHeal: schema.workflows.selfHeal })
+    .from(schema.workflows)
+    .where(eq(schema.workflows.id, dep.workflowId));
 
   await db
     .update(schema.deployments)
@@ -103,6 +107,7 @@ hookRoutes.post("/:token", async (c) => {
       trigger: "webhook",
       deploymentId: dep.id,
       triggerPayload: payload,
+      selfHeal: wf?.selfHeal ?? false,
     });
     void done.catch(() => {}); // finalized in the background
     return c.json({ runId }, 202);

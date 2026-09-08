@@ -51,6 +51,10 @@ async function tick(): Promise<void> {
     if (sched.nextRunAt === null) continue;
 
     try {
+      const [wf] = await db
+        .select({ selfHeal: schema.workflows.selfHeal })
+        .from(schema.workflows)
+        .where(eq(schema.workflows.id, sched.workflowId));
       const { done } = await startRun({
         workflowId: sched.workflowId,
         graph: sched.graphSnapshot,
@@ -58,6 +62,7 @@ async function tick(): Promise<void> {
         trigger: "schedule",
         scheduleId: sched.id,
         triggerPayload: { scheduledFor: now.toISOString(), cron: sched.cron },
+        selfHeal: wf?.selfHeal ?? false,
       });
       void done.catch(() => {});
       await db

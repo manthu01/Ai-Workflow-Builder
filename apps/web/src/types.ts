@@ -35,6 +35,7 @@ export interface WorkflowRecord {
   description: string | null;
   graph: WorkflowGraph;
   sourcePrompt: string | null;
+  selfHeal: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -154,6 +155,7 @@ export type NodeRunStatus =
 
 export interface NodeRunResult {
   nodeId: string;
+  kind?: string;
   status: NodeRunStatus;
   input?: unknown;
   output?: unknown;
@@ -162,6 +164,12 @@ export interface NodeRunResult {
   attempts: number;
   startedAt?: string;
   finishedAt?: string;
+  healed?: {
+    explanation: string;
+    from: Record<string, unknown>;
+    to: Record<string, unknown>;
+    succeeded: boolean;
+  };
 }
 
 export interface RunResult {

@@ -73,6 +73,7 @@ workflowRoutes.get("/:id", async (c) => {
 const UpdateBody = z.object({
   name: z.string().min(1).max(160).optional(),
   graph: WorkflowGraphSchema.optional(),
+  selfHeal: z.boolean().optional(),
 });
 
 workflowRoutes.put("/:id", async (c) => {
@@ -98,6 +99,7 @@ workflowRoutes.put("/:id", async (c) => {
       name: parsed.data.name ?? graph.name ?? existing.name,
       description: graph.description ?? existing.description,
       graph,
+      selfHeal: parsed.data.selfHeal ?? existing.selfHeal,
       updatedAt: new Date(),
     })
     .where(eq(schema.workflows.id, id))

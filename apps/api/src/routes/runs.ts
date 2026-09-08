@@ -39,6 +39,7 @@ runRoutes.post("/workflows/:id/runs", async (c) => {
       graph: wf.graph,
       mode: parsed.data.mode,
       trigger: "manual",
+      selfHeal: wf.selfHeal,
     });
     void done.catch(() => {}); // background-finalized; no one awaits here
     return c.json({ runId, mode: parsed.data.mode }, 202);
