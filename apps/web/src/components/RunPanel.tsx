@@ -80,6 +80,14 @@ function NodeRunCard({ node }: { node: NodeRunResult }) {
           {JSON.stringify(node.input, null, 2)}
         </pre>
       )}
+      {typeof (node.output as { dataUri?: string })?.dataUri === "string" &&
+        (node.output as { dataUri: string }).dataUri.startsWith("data:image/") && (
+          <img
+            className="asset-preview"
+            src={(node.output as { dataUri: string }).dataUri}
+            alt="generated asset"
+          />
+        )}
       {node.output !== undefined && (
         <pre>
           <span style={{ color: "var(--muted)" }}>output </span>

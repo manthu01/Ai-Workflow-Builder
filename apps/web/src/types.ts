@@ -5,6 +5,8 @@ export type NodeKind =
   | "transform"
   | "branch"
   | "loop"
+  | "code"
+  | "asset"
   | "approval"
   | "slack_post";
 

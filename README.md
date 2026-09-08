@@ -175,10 +175,17 @@ A **`loop` node** maps a per-item JS expression over an array from upstream:
 `index`, and `input` in scope, and the output is `{ results, count }` for
 downstream nodes to aggregate.
 
+## Expansion #9 & #10 — sandboxed code + 2D asset nodes (done)
+
+- **`code` node** runs a multi-line JS function body in a separate `worker_threads`
+  Worker with its own globals, a memory cap, and a hard timeout (the thread is
+  terminated on overrun). `input` is in scope; `return` a value.
+- **`asset` node** generates and minifies an SVG (card / badge / banner) from a
+  templated title, subtitle, and accent colour; output carries `svg`, a base64
+  `dataUri`, and dimensions, and the run panel previews the image inline.
+
 ## Status
 
-All four blueprint core phases plus Expansion #4 (branching/parallel), #1
-(approvals), #5 (version control), #7 (analytics dashboard), #2 (self-healing),
-and a loop/iterator node are implemented. Remaining Expansion features: #3 OpenAPI
-ingestion, #6 local execution, #8 template marketplace, #9 sandboxed code node,
-#10 asset generator.
+Blueprint core (4 phases) + Expansion #4, #1, #5, #7, #2, #9, #10, plus a
+loop/iterator node. Remaining Expansion features: #3 OpenAPI ingestion, #6 local
+execution node, #8 community template marketplace.

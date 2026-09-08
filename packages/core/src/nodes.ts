@@ -12,6 +12,8 @@ export const NODE_KINDS = [
   "transform",
   "branch",
   "loop",
+  "code",
+  "asset",
   "approval",
   "slack_post",
 ] as const;
@@ -76,6 +78,28 @@ export const BranchConfig = z.object({
   expression: z.string().min(1),
 });
 
+export const CodeConfig = z.object({
+  /**
+   * A multi-line JavaScript function body. `input` (merged upstream outputs) is
+   * in scope; `return` a value (may be async). Runs in a separate worker thread
+   * with a hard timeout.
+   */
+  code: z.string().min(1),
+  /** Milliseconds before the thread is terminated. */
+  timeoutMs: z.string().default("2000"),
+});
+
+export const AssetConfig = z.object({
+  /** Which built-in generator to use. */
+  template: z.enum(["card", "badge", "banner"]).default("card"),
+  /** Main text. Templated. */
+  title: z.string().min(1),
+  /** Secondary text. Templated. */
+  subtitle: z.string().default(""),
+  /** Accent colour, any CSS colour. */
+  color: z.string().default("#4c8dff"),
+});
+
 export const LoopConfig = z.object({
   /** JS expression against `input` that must evaluate to an array. */
   items: z.string().min(1),
@@ -109,6 +133,8 @@ export const NODE_CONFIG_SCHEMAS = {
   transform: TransformConfig,
   branch: BranchConfig,
   loop: LoopConfig,
+  code: CodeConfig,
+  asset: AssetConfig,
   approval: ApprovalConfig,
   slack_post: SlackPostConfig,
 } satisfies Record<NodeKind, z.ZodTypeAny>;
@@ -304,6 +330,47 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
         placeholder: "{ id: item.id, title: item.title.trim() }",
         help: "`item`, `index`, and `input` are in scope. Output is { results, count }.",
       },
+    ],
+  },
+  code: {
+    kind: "code",
+    title: "Code (sandboxed JS)",
+    description:
+      "Runs a multi-line JavaScript function in an isolated worker thread with a hard timeout. Use for bespoke data transforms.",
+    isTrigger: false,
+    hasSideEffects: false,
+    configFields: "code: string (JS function body, `input` in scope, must return); timeoutMs: string",
+    fields: [
+      {
+        key: "code",
+        label: "JavaScript",
+        widget: "textarea",
+        default: "return input;",
+        placeholder: "const rows = input.trigger.rows;\nreturn rows.filter(r => r.active).length;",
+        help: "`input` is the merged upstream outputs. `return` a value (async allowed).",
+      },
+      { key: "timeoutMs", label: "Timeout (ms)", widget: "text", default: "2000" },
+    ],
+  },
+  asset: {
+    kind: "asset",
+    title: "2D Asset",
+    description:
+      "Generates and minifies an SVG image (social card, badge, or banner) during the run.",
+    isTrigger: false,
+    hasSideEffects: false,
+    configFields: 'template: "card"|"badge"|"banner"; title: string; subtitle: string; color: string',
+    fields: [
+      {
+        key: "template",
+        label: "Template",
+        widget: "select",
+        options: ["card", "badge", "banner"],
+        default: "card",
+      },
+      { key: "title", label: "Title", widget: "text", default: "", placeholder: "{{ summarize.text }}" },
+      { key: "subtitle", label: "Subtitle", widget: "text", default: "" },
+      { key: "color", label: "Accent colour", widget: "text", default: "#4c8dff" },
     ],
   },
   approval: {

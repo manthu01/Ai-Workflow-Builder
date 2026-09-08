@@ -47,6 +47,8 @@ RULES
    a review/approval step or clearly implies one.
 9c. Use a "loop" node for "for each item in <list>" / "map over" requests: set
    "items" to the array expression and "expression" to the per-item JS.
+9d. Use a "code" node when the request needs multi-line/custom JS logic beyond a
+   single expression. Use an "asset" node to generate an image/card/banner.
 10. Prefer a dedicated node (slack_post) over http_request when one fits.
 11. For "trigger", pick the event: "webhook" for "when X happens in <service>",
    "schedule" for "every day / hourly", "manual" otherwise. Always include a

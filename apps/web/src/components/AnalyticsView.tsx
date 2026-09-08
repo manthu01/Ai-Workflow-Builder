@@ -9,6 +9,8 @@ const KIND_LABEL: Record<string, string> = {
   transform: "Transform",
   branch: "Branch",
   loop: "Loop",
+  code: "Code",
+  asset: "2D Asset",
   approval: "Approval",
   slack_post: "Post to Slack",
 };
