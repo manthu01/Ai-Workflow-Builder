@@ -4,19 +4,23 @@ import {
   defineSignal,
   setHandler,
   condition,
+  workflowInfo,
 } from "@temporalio/workflow";
 import {
   liveInboundEdges,
   renderString,
   ApprovalConfig,
+  LocalConfig,
   RunProgressQueryName,
   ApprovalSignalName,
+  LocalResultSignalName,
   type WorkflowExecutionInput,
   type RunResult,
   type RunProgress,
   type NodeRunResult,
   type NodeOutcome,
   type ApprovalDecision,
+  type LocalResult,
 } from "@awb/core";
 import type * as activities from "./activities.js";
 
@@ -38,15 +42,16 @@ function rootMessage(err: unknown): string {
 
 const getRunProgress = defineQuery<RunProgress>(RunProgressQueryName);
 const approvalSignal = defineSignal<[ApprovalDecision]>(ApprovalSignalName);
+const localResultSignal = defineSignal<[LocalResult]>(LocalResultSignalName);
 
 const { executeNode } = proxyActivities<typeof activities>({
   startToCloseTimeout: "2 minutes",
   retry: { maximumAttempts: 3, initialInterval: "1s", backoffCoefficient: 2 },
 });
 
-const { healNode } = proxyActivities<typeof activities>({
+const { healNode, enqueueLocalTask } = proxyActivities<typeof activities>({
   startToCloseTimeout: "1 minute",
-  retry: { maximumAttempts: 1 },
+  retry: { maximumAttempts: 2 },
 });
 
 const HEALABLE = new Set([
@@ -83,6 +88,10 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
   const approvals: Record<string, ApprovalDecision> = {};
   setHandler(approvalSignal, (d) => {
     approvals[d.nodeId] = d;
+  });
+  const localResults: Record<string, LocalResult> = {};
+  setHandler(localResultSignal, (r) => {
+    localResults[r.nodeId] = r;
   });
 
   setHandler(getRunProgress, () => ({
@@ -133,15 +142,18 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
       const slice: Record<string, unknown> = {};
       for (const e of live) slice[e.source] = outputs[e.source];
       inputs.set(n.id, slice);
-      const isApproval = n.kind === "approval";
+      const pausing = n.kind === "approval" || n.kind === "local";
       results[n.id] = {
         nodeId: n.id,
         kind: n.kind,
-        status: isApproval ? "awaiting" : "running",
+        status: pausing ? "awaiting" : "running",
         input: slice,
-        logs: isApproval
-          ? [renderString(ApprovalConfig.parse(n.config).message, outputs)]
-          : [],
+        logs:
+          n.kind === "approval"
+            ? [renderString(ApprovalConfig.parse(n.config).message, outputs)]
+            : n.kind === "local"
+              ? [`waiting for local runner: ${renderString(LocalConfig.parse(n.config).command, outputs)}`]
+              : [],
         attempts: 1,
         startedAt: new Date().toISOString(),
       };
@@ -150,6 +162,57 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
     const settled = await Promise.all(
       toRun.map(async (n): Promise<NodeRunResult> => {
         const slice = inputs.get(n.id)!;
+
+        if (n.kind === "local") {
+          const command = renderString(LocalConfig.parse(n.config).command, outputs);
+          await enqueueLocalTask({
+            runId,
+            nodeId: n.id,
+            temporalWorkflowId: workflowInfo().workflowId,
+            command,
+          });
+          const got = await condition(
+            () => localResults[n.id] !== undefined,
+            "15 minutes",
+          );
+          const r = localResults[n.id];
+          if (!got || !r) {
+            anyFailed = true;
+            return {
+              nodeId: n.id,
+              kind: n.kind,
+              status: "failed",
+              input: slice,
+              error: "no local runner responded within 15 minutes",
+              logs: [`command: ${command}`],
+              attempts: 1,
+              finishedAt: new Date().toISOString(),
+            };
+          }
+          if (r.exitCode === 0) {
+            return {
+              nodeId: n.id,
+              kind: n.kind,
+              status: "succeeded",
+              input: slice,
+              output: { stdout: r.stdout, stderr: r.stderr, exitCode: 0 },
+              logs: [`local command ran locally (exit 0)`],
+              attempts: 1,
+              finishedAt: new Date().toISOString(),
+            };
+          }
+          anyFailed = true;
+          return {
+            nodeId: n.id,
+            kind: n.kind,
+            status: "failed",
+            input: slice,
+            error: `local command exited ${r.exitCode}: ${r.stderr.slice(0, 500)}`,
+            logs: [],
+            attempts: 1,
+            finishedAt: new Date().toISOString(),
+          };
+        }
 
         if (n.kind === "approval") {
           const cfg = ApprovalConfig.parse(n.config);

@@ -21,10 +21,13 @@ export const NODE_EXECUTORS: Record<NodeKind, NodeExecutor> = {
   code: runCode,
   asset: runAsset,
   api_call: runApiCall,
-  // Approval gates are handled inline by the engine workflow (they wait on a
-  // signal), never dispatched as an activity.
+  // Approval + local nodes are handled inline by the engine workflow (they wait
+  // on a signal), never dispatched as an activity.
   approval: async () => {
     throw new Error("approval nodes are handled by the engine, not as an activity");
+  },
+  local: async () => {
+    throw new Error("local nodes are handled by the engine, not as an activity");
   },
   slack_post: runSlackPost,
 };

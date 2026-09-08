@@ -200,7 +200,16 @@ templated `args` JSON, and optionally attaches an auth connection. The compiler
 gets a compact list of ingested operations so it can wire `api_call` nodes into
 generated workflows.
 
+## Expansion #6 — local execution node (done)
+
+A **`local` node** runs a shell command on your own machine so files never touch
+the cloud. When the engine reaches it, it enqueues a `local_tasks` row and the
+workflow pauses on a Temporal signal (`awaiting`). A standalone poller —
+`apps/local-runner` (`npm run local-runner`) — claims the task, runs the command
+in its working directory, and POSTs back stdout/stderr/exitCode, which signals
+the run to resume (or fail on a non-zero exit / a 15-minute no-response timeout).
+
 ## Status
 
-Blueprint core (4 phases) + Expansion #3, #4, #1, #5, #7, #2, #8, #9, #10, plus a
-loop/iterator node. Remaining: #6 local execution node.
+**All four blueprint core phases and all ten Expansion features are implemented**
+(#1–#10), plus a loop/iterator node.

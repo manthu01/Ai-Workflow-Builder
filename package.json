@@ -17,6 +17,7 @@
     "dev:api": "npm run dev -w @awb/api",
     "dev:worker": "npm run dev -w @awb/worker",
     "dev:web": "npm run dev -w @awb/web",
+    "local-runner": "npm run dev -w @awb/local-runner",
     "build": "npm run build -w @awb/core && npm run build -w @awb/api && npm run build -w @awb/worker && npm run build -w @awb/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "infra:up": "docker compose up -d",

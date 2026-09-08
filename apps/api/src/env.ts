@@ -20,6 +20,8 @@ const EnvSchema = z.object({
   SECRET_KEY: z.string().default("dev-insecure-secret-key-change-me"),
   /** Shared token the worker uses to resolve connection secrets from the API. */
   INTERNAL_TOKEN: z.string().default("dev-internal-token"),
+  /** Token the local runner presents to poll for and report on local tasks. */
+  LOCAL_RUNNER_TOKEN: z.string().default("dev-local-runner-token"),
   /** Public base URL for webhook listener URLs shown in the UI. */
   PUBLIC_URL: z.string().default("http://localhost:8787"),
 });

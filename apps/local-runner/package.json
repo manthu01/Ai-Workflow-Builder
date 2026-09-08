@@ -1,0 +1,21 @@
+{
+  "name": "@awb/local-runner",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "bin": { "awb-local-runner": "dist/index.js" },
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=../../.env src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node --env-file-if-exists=../../.env dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.5",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}

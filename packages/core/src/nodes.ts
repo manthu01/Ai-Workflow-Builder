@@ -15,6 +15,7 @@ export const NODE_KINDS = [
   "code",
   "asset",
   "api_call",
+  "local",
   "approval",
   "slack_post",
 ] as const;
@@ -122,6 +123,15 @@ export const LoopConfig = z.object({
   expression: z.string().min(1),
 });
 
+export const LocalConfig = z.object({
+  /**
+   * Shell command run by a local runner on the user's own machine (templated).
+   * Its stdout/stderr/exitCode become the node's output. Files never leave the
+   * machine.
+   */
+  command: z.string().min(1),
+});
+
 export const ApprovalConfig = z.object({
   /** Message shown to the approver. May contain {{ node_id.field }} templates. */
   message: z.string().min(1),
@@ -148,6 +158,7 @@ export const NODE_CONFIG_SCHEMAS = {
   code: CodeConfig,
   asset: AssetConfig,
   api_call: ApiCallConfig,
+  local: LocalConfig,
   approval: ApprovalConfig,
   slack_post: SlackPostConfig,
 } satisfies Record<NodeKind, z.ZodTypeAny>;
@@ -418,6 +429,25 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
         connectionKind: "http_header",
         default: "",
         optional: true,
+      },
+    ],
+  },
+  local: {
+    kind: "local",
+    title: "Local execution",
+    description:
+      "Runs a shell command on your own machine via a local runner — for files that shouldn't touch the cloud. The run pauses until the runner reports back.",
+    isTrigger: false,
+    hasSideEffects: true,
+    configFields: "command: string (shell command, templated)",
+    fields: [
+      {
+        key: "command",
+        label: "Command",
+        widget: "textarea",
+        default: "",
+        placeholder: "node scripts/process.js --in {{ trigger.path }}",
+        help: "Runs where you started `npm run local-runner`. stdout/stderr/exitCode become the output.",
       },
     ],
   },

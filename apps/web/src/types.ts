@@ -8,6 +8,7 @@ export type NodeKind =
   | "code"
   | "asset"
   | "api_call"
+  | "local"
   | "approval"
   | "slack_post";
 

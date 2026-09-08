@@ -158,6 +158,28 @@ export const schedules = pgTable(
   (t) => [index("schedules_workflow_idx").on(t.workflowId)],
 );
 
+/** Expansion #6: work handed off to a local runner on the user's machine. */
+export const localTasks = pgTable(
+  "local_tasks",
+  {
+    id: text("id").primaryKey(),
+    runId: text("run_id").notNull(),
+    nodeId: text("node_id").notNull(),
+    temporalWorkflowId: text("temporal_workflow_id").notNull(),
+    command: text("command").notNull(),
+    status: text("status", { enum: ["pending", "running", "done", "error"] })
+      .notNull()
+      .default("pending"),
+    result: jsonb("result").$type<{
+      stdout: string;
+      stderr: string;
+      exitCode: number;
+    }>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("local_tasks_status_idx").on(t.status)],
+);
+
 export const nodeRuns = pgTable(
   "node_runs",
   {

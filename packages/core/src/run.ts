@@ -43,6 +43,16 @@ export interface ApprovalDecision {
   by?: string;
 }
 
+/** Temporal signal name for a local runner's result on a local node. */
+export const LocalResultSignalName = "localResult";
+
+export interface LocalResult {
+  nodeId: string;
+  stdout: string;
+  stderr: string;
+  exitCode: number;
+}
+
 export const NodeRunResultSchema = z.object({
   nodeId: z.string(),
   /** Node kind, carried through for analytics aggregation. */

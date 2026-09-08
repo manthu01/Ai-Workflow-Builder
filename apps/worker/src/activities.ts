@@ -4,6 +4,8 @@ import { NODE_EXECUTORS, type NodeExecCtx } from "./nodes/index.js";
 
 export { healNode } from "./heal.js";
 export type { HealNodeParams, HealNodeOutput } from "./heal.js";
+export { enqueueLocalTask } from "./local.js";
+export type { EnqueueLocalTaskParams } from "./local.js";
 
 export interface ExecuteNodeParams {
   node: WorkflowNode;
