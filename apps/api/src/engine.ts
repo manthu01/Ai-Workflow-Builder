@@ -107,6 +107,7 @@ export async function finalizeRun(runId: string, result: RunResult): Promise<voi
           id: newId("nr"),
           runId,
           nodeId: n.nodeId,
+          kind: n.kind ?? "",
           status: n.status,
           input: n.input ?? null,
           output: n.output ?? null,

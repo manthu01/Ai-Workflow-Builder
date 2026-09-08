@@ -1,4 +1,5 @@
 import type {
+  Analytics,
   Connection,
   ConnectionKind,
   Deployment,
@@ -39,6 +40,11 @@ export interface CompileResponse {
 
 export const api = {
   nodeCatalog: () => request<{ nodes: NodeCatalogEntry[] }>("/api/node-catalog"),
+
+  analytics: (workflowId?: string) =>
+    request<Analytics>(
+      `/api/analytics${workflowId ? `?workflowId=${workflowId}` : ""}`,
+    ),
 
   compile: (prompt: string) =>
     request<CompileResponse>("/api/workflows/compile", {

@@ -99,6 +99,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
       if (live.length === 0) {
         results[n.id] = {
           nodeId: n.id,
+          kind: n.kind,
           status: "skipped",
           input: {},
           logs: ["skipped: no live inbound path"],
@@ -119,6 +120,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
       const isApproval = n.kind === "approval";
       results[n.id] = {
         nodeId: n.id,
+        kind: n.kind,
         status: isApproval ? "awaiting" : "running",
         input: slice,
         logs: isApproval
@@ -141,6 +143,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
           if (d.decision === "approved") {
             return {
               nodeId: n.id,
+              kind: n.kind,
               status: "succeeded",
               input: slice,
               output: { approved: true, note: d.note ?? "", by: d.by ?? "", message },
@@ -152,6 +155,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
           anyFailed = true;
           return {
             nodeId: n.id,
+            kind: n.kind,
             status: "failed",
             input: slice,
             error: `rejected${d.by ? ` by ${d.by}` : ""}${d.note ? `: ${d.note}` : ""}`,
@@ -171,6 +175,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
           });
           return {
             nodeId: n.id,
+            kind: n.kind,
             status: "succeeded",
             input: slice,
             output: res.output,
@@ -183,6 +188,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
           anyFailed = true;
           return {
             nodeId: n.id,
+            kind: n.kind,
             status: "failed",
             input: slice,
             error: rootMessage(err),

@@ -150,10 +150,18 @@ The **History** tab lists them with source and timestamp; "Restore" rolls the
 working graph back to that version (snapshotting the current state first, so the
 rollback is itself reversible).
 
+## Expansion #7 — analytics dashboard (done)
+
+A **Builder / Analytics** toggle in the top bar. The Analytics view aggregates
+every run and node execution: stat tiles (runs, success rate, avg run time, node
+executions), a 14-day stacked runs-over-time chart, a per-node-kind performance
+table (count, success rate, p50/p95 latency), a failures-by-node bar chart, and a
+recent-runs table. `node_runs` now carries the node `kind` for grouping.
+
 ## Status
 
 All four blueprint core phases plus Expansion #4 (branching/parallel), #1
-(approvals), and #5 (version control) are implemented. The remaining Expansion
-features (#2 self-healing, #3 OpenAPI ingestion, #6 local execution, #7 analytics
-dashboard, #8 template marketplace, #9 sandboxed code node, #10 asset generator)
+(approvals), #5 (version control), and #7 (analytics dashboard) are implemented.
+Remaining Expansion features (#2 self-healing, #3 OpenAPI ingestion, #6 local
+execution, #8 template marketplace, #9 sandboxed code node, #10 asset generator)
 are unstarted.

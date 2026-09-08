@@ -33,6 +33,8 @@ interface AppState {
   versions: WorkflowVersion[];
   connectionsOpen: boolean;
   setConnectionsOpen: (open: boolean) => void;
+  view: "builder" | "analytics";
+  setView: (v: "builder" | "analytics") => void;
   compiling: boolean;
   running: boolean;
   saving: boolean;
@@ -148,6 +150,8 @@ export const useApp = create<AppState>((set, get) => {
     versions: [],
     connectionsOpen: false,
     setConnectionsOpen: (open) => set({ connectionsOpen: open }),
+    view: "builder",
+    setView: (v) => set({ view: v }),
     compiling: false,
     running: false,
     saving: false,

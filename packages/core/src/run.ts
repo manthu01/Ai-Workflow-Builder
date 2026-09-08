@@ -43,6 +43,8 @@ export interface ApprovalDecision {
 
 export const NodeRunResultSchema = z.object({
   nodeId: z.string(),
+  /** Node kind, carried through for analytics aggregation. */
+  kind: z.string().default(""),
   status: NodeRunStatus,
   /** Merged upstream outputs the node received. */
   input: z.unknown().optional(),

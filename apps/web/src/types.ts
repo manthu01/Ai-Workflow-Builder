@@ -88,6 +88,42 @@ export interface Schedule {
   createdAt: string;
 }
 
+export interface Analytics {
+  totals: {
+    runs: number;
+    succeeded: number;
+    failed: number;
+    running: number;
+    successRate: number;
+    dryRuns: number;
+    liveRuns: number;
+    avgRunMs: number;
+    nodeRuns: number;
+  };
+  byTrigger: Record<string, number>;
+  perDay: { day: string; succeeded: number; failed: number; other: number }[];
+  nodePerf: {
+    kind: string;
+    count: number;
+    succeeded: number;
+    failed: number;
+    skipped: number;
+    successRate: number;
+    p50Ms: number;
+    p95Ms: number;
+  }[];
+  failuresByKind: { kind: string; failed: number }[];
+  recentRuns: {
+    id: string;
+    workflowName: string;
+    mode: string;
+    trigger: string;
+    status: string;
+    startedAt: string;
+    durationMs: number | null;
+  }[];
+}
+
 export interface WorkflowVersion {
   id: string;
   version: number;

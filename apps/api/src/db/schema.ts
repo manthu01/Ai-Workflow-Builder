@@ -131,6 +131,7 @@ export const nodeRuns = pgTable(
       .notNull()
       .references(() => runs.id, { onDelete: "cascade" }),
     nodeId: text("node_id").notNull(),
+    kind: text("kind").notNull().default(""),
     status: text("status", {
       enum: ["pending", "running", "awaiting", "succeeded", "failed", "skipped"],
     }).notNull(),
