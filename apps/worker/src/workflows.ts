@@ -56,6 +56,8 @@ const HEALABLE = new Set([
   "transform",
   "branch",
   "loop",
+  "code",
+  "api_call",
 ]);
 
 /**

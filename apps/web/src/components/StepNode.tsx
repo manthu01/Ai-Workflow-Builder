@@ -18,6 +18,7 @@ const KIND_LABEL: Record<NodeKind, string> = {
   loop: "Loop",
   code: "Code",
   asset: "2D Asset",
+  api_call: "API call",
   approval: "Approval",
   slack_post: "Post to Slack",
 };

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { api } from "./api";
 import type {
+  ApiBlueprint,
   Connection,
   ConnectionKind,
   Deployment,
@@ -34,6 +35,12 @@ interface AppState {
   versions: WorkflowVersion[];
   connectionsOpen: boolean;
   setConnectionsOpen: (open: boolean) => void;
+  blueprintsOpen: boolean;
+  setBlueprintsOpen: (open: boolean) => void;
+  blueprints: ApiBlueprint[];
+  loadBlueprints: () => Promise<void>;
+  createBlueprint: (name: string, spec: string) => Promise<void>;
+  removeBlueprint: (id: string) => Promise<void>;
   view: "builder" | "analytics" | "templates";
   setView: (v: "builder" | "analytics" | "templates") => void;
   templates: Template[];
@@ -157,6 +164,34 @@ export const useApp = create<AppState>((set, get) => {
     versions: [],
     connectionsOpen: false,
     setConnectionsOpen: (open) => set({ connectionsOpen: open }),
+    blueprintsOpen: false,
+    setBlueprintsOpen: (open) => set({ blueprintsOpen: open }),
+    blueprints: [],
+    loadBlueprints: async () => {
+      try {
+        const res = await api.listBlueprints();
+        set({ blueprints: res.blueprints });
+      } catch {
+        /* non-fatal */
+      }
+    },
+    createBlueprint: async (name, spec) => {
+      try {
+        await api.createBlueprint(name, spec);
+        await get().loadBlueprints();
+      } catch (err) {
+        set({ error: (err as Error).message });
+        throw err;
+      }
+    },
+    removeBlueprint: async (id) => {
+      try {
+        await api.deleteBlueprint(id);
+        set((s) => ({ blueprints: s.blueprints.filter((b) => b.id !== id) }));
+      } catch (err) {
+        set({ error: (err as Error).message });
+      }
+    },
     view: "builder",
     setView: (v) => set({ view: v }),
     templates: [],

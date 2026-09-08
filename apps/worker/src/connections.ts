@@ -26,3 +26,26 @@ export async function resolveConnection(id: string): Promise<ResolvedConnection>
   }
   return (await res.json()) as ResolvedConnection;
 }
+
+export interface ResolvedBlueprint {
+  baseUrl: string;
+  operations: {
+    operationId: string;
+    method: string;
+    path: string;
+    summary: string;
+    params: { name: string; in: string; required: boolean }[];
+  }[];
+}
+
+export async function resolveBlueprint(id: string): Promise<ResolvedBlueprint> {
+  const res = await fetch(`${env.AWB_API_URL}/api/blueprints/internal/${id}/resolve`, {
+    method: "POST",
+    headers: { "x-internal-token": env.INTERNAL_TOKEN },
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(`could not resolve blueprint ${id}: ${body.error ?? res.status}`);
+  }
+  return (await res.json()) as ResolvedBlueprint;
+}

@@ -10,9 +10,25 @@ import {
 import type { CompilerGraph } from "./schema.js";
 import { autoLayout } from "./layout.js";
 import { env, tierModels } from "../env.js";
+import { db, schema } from "../db/client.js";
 import type { WorkflowCompilerProvider } from "../llm/provider.js";
 import { StubCompilerProvider } from "../llm/stub.js";
 import { AnthropicCompilerProvider } from "../llm/anthropic.js";
+
+/** A compact summary of ingested API blueprints for the compiler prompt. */
+async function blueprintContext(): Promise<string> {
+  const rows = await db.select().from(schema.apiBlueprints).catch(() => []);
+  if (rows.length === 0) return "";
+  const lines = rows.flatMap((b) =>
+    b.operations
+      .slice(0, 40)
+      .map(
+        (o) =>
+          `  - blueprint "${b.id}" op "${o.operationId}": ${o.method} ${o.path} — ${o.summary || "(no summary)"} [params: ${o.params.map((p) => p.name).join(", ") || "none"}]`,
+      ),
+  );
+  return `\n\nINGESTED API BLUEPRINTS (use an "api_call" node with blueprintId + operationId + args when one fits):\n${lines.join("\n")}`;
+}
 
 export class CompileError extends Error {
   constructor(
@@ -84,13 +100,15 @@ export async function compileWorkflow(request: string): Promise<CompileResult> {
   const model =
     env.COMPILER_MODEL || resolveModel(route.tier, undefined, tierModels);
 
+  const extraContext = await blueprintContext();
+
   const maxAttempts = 2;
   let priorIssues: string[] | undefined;
   let lastGraph: WorkflowGraph | undefined;
   let lastErrors: GraphIssue[] = [];
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const draft = await provider.generate(request, { priorIssues, model });
+    const draft = await provider.generate(request, { priorIssues, model, extraContext });
     let graph: WorkflowGraph;
     try {
       graph = autoLayout(toWorkflowGraph(draft));

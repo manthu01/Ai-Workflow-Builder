@@ -7,6 +7,7 @@ export type NodeKind =
   | "loop"
   | "code"
   | "asset"
+  | "api_call"
   | "approval"
   | "slack_post";
 
@@ -52,7 +53,7 @@ export interface GraphIssue {
 export interface NodeFieldSpec {
   key: string;
   label: string;
-  widget: "text" | "textarea" | "select" | "json" | "connection";
+  widget: "text" | "textarea" | "select" | "json" | "connection" | "blueprint";
   options?: string[];
   connectionKind?: "slack" | "http_header";
   placeholder?: string;
@@ -126,6 +127,21 @@ export interface Analytics {
     startedAt: string;
     durationMs: number | null;
   }[];
+}
+
+export interface ApiBlueprint {
+  id: string;
+  name: string;
+  baseUrl: string;
+  operationCount: number;
+  operations: {
+    operationId: string;
+    method: string;
+    path: string;
+    summary: string;
+    params: { name: string; in: string; required: boolean }[];
+  }[];
+  createdAt: string;
 }
 
 export interface Template {

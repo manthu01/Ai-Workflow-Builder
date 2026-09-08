@@ -5,6 +5,7 @@ import { Toolbar } from "./components/Toolbar";
 import { WorkflowCanvas } from "./components/WorkflowCanvas";
 import { RightPanel } from "./components/RightPanel";
 import { ConnectionsModal } from "./components/ConnectionsModal";
+import { BlueprintsModal } from "./components/BlueprintsModal";
 import { AnalyticsView } from "./components/AnalyticsView";
 import { TemplatesView } from "./components/TemplatesView";
 
@@ -15,11 +16,13 @@ export function App() {
   const setView = useApp((s) => s.setView);
   const loadCatalog = useApp((s) => s.loadCatalog);
   const loadConnections = useApp((s) => s.loadConnections);
+  const loadBlueprints = useApp((s) => s.loadBlueprints);
 
   useEffect(() => {
     void loadCatalog();
     void loadConnections();
-  }, [loadCatalog, loadConnections]);
+    void loadBlueprints();
+  }, [loadCatalog, loadConnections, loadBlueprints]);
 
   return (
     <div className="app">
@@ -62,6 +65,7 @@ export function App() {
         </div>
       )}
       <ConnectionsModal />
+      <BlueprintsModal />
     </div>
   );
 }

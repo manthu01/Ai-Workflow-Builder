@@ -1,17 +1,19 @@
 import { useApp } from "../store";
-import type { Connection, NodeFieldSpec } from "../types";
+import type { ApiBlueprint, Connection, NodeFieldSpec } from "../types";
 
 function Field({
   spec,
   value,
   invalid,
   connections,
+  blueprints,
   onChange,
 }: {
   spec: NodeFieldSpec;
   value: string;
   invalid: boolean;
   connections: Connection[];
+  blueprints: ApiBlueprint[];
   onChange: (v: string) => void;
 }) {
   const common = {
@@ -26,7 +28,18 @@ function Field({
         {spec.label}
         {spec.optional && <span className="cfg-optional"> (optional)</span>}
       </span>
-      {spec.widget === "connection" ? (
+      {spec.widget === "blueprint" ? (
+        <select {...common}>
+          <option value="">
+            {blueprints.length ? "— none —" : "no blueprints yet"}
+          </option>
+          {blueprints.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name} ({b.operationCount} ops)
+            </option>
+          ))}
+        </select>
+      ) : spec.widget === "connection" ? (
         <select {...common}>
           <option value="">
             {matching.length ? "— none —" : "no connections yet"}
@@ -66,6 +79,7 @@ export function NodeConfigPanel() {
   const catalog = useApp((s) => s.catalog);
   const issues = useApp((s) => s.issues);
   const connections = useApp((s) => s.connections);
+  const blueprints = useApp((s) => s.blueprints);
   const updateNode = useApp((s) => s.updateNode);
   const deleteNode = useApp((s) => s.deleteNode);
 
@@ -113,6 +127,7 @@ export function NodeConfigPanel() {
           value={node.config[spec.key] ?? ""}
           invalid={invalidKeys.has(spec.key)}
           connections={connections}
+          blueprints={blueprints}
           onChange={(v) => updateNode(node.id, { config: { [spec.key]: v } })}
         />
       ))}

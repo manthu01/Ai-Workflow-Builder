@@ -5,6 +5,8 @@ export interface CompileAttemptContext {
   priorIssues?: string[];
   /** Model id to use for this attempt (chosen by the complexity router). */
   model?: string;
+  /** Extra context (e.g. ingested API blueprints) appended for the model only. */
+  extraContext?: string;
 }
 
 /**

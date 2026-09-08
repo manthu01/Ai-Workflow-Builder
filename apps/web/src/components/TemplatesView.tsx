@@ -10,6 +10,7 @@ const KIND_LABEL: Record<string, string> = {
   loop: "loop",
   code: "code",
   asset: "asset",
+  api_call: "API",
   approval: "approval",
   slack_post: "Slack",
 };

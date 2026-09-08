@@ -1,5 +1,6 @@
 import type {
   Analytics,
+  ApiBlueprint,
   Connection,
   ConnectionKind,
   Deployment,
@@ -139,6 +140,15 @@ export const api = {
     }),
 
   listConnections: () => request<{ connections: Connection[] }>("/api/connections"),
+
+  listBlueprints: () => request<{ blueprints: ApiBlueprint[] }>("/api/blueprints"),
+  createBlueprint: (name: string, spec: string) =>
+    request<{ blueprint: ApiBlueprint }>("/api/blueprints", {
+      method: "POST",
+      body: JSON.stringify({ name: name || undefined, spec }),
+    }),
+  deleteBlueprint: (id: string) =>
+    request<unknown>(`/api/blueprints/${id}`, { method: "DELETE" }),
 
   createConnection: (body: {
     name: string;

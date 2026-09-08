@@ -31,7 +31,10 @@ export class AnthropicCompilerProvider implements WorkflowCompilerProvider {
   ): Promise<CompilerGraph> {
     const model = ctx?.model || this.fallbackModel;
     const messages: Anthropic.MessageParam[] = [
-      { role: "user", content: buildUserPrompt(request) },
+      {
+        role: "user",
+        content: buildUserPrompt(request) + (ctx?.extraContext ?? ""),
+      },
     ];
     if (ctx?.priorIssues?.length) {
       messages.push({ role: "user", content: buildRepairPrompt(ctx.priorIssues) });

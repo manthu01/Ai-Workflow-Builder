@@ -191,8 +191,16 @@ the current workflow (button in the Builder toolbar), `POST …/clone` forks a
 template into a fresh workflow and drops you back in the Builder, delete for
 community entries. Three built-in templates are seeded on first boot.
 
+## Expansion #3 — custom API blueprinting (OpenAPI ingestion) (done)
+
+Paste an OpenAPI v2/v3 JSON doc in the **API blueprints** manager; it's distilled
+to a flat list of operations (method, path, params, base URL). An **`api_call`
+node** picks a `blueprintId` + `operationId`, fills path/query/body params from a
+templated `args` JSON, and optionally attaches an auth connection. The compiler
+gets a compact list of ingested operations so it can wire `api_call` nodes into
+generated workflows.
+
 ## Status
 
-Blueprint core (4 phases) + Expansion #4, #1, #5, #7, #2, #8, #9, #10, plus a
-loop/iterator node. Remaining Expansion features: #3 OpenAPI ingestion, #6 local
-execution node.
+Blueprint core (4 phases) + Expansion #3, #4, #1, #5, #7, #2, #8, #9, #10, plus a
+loop/iterator node. Remaining: #6 local execution node.

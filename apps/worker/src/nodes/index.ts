@@ -8,6 +8,7 @@ import { runBranch } from "./branch.js";
 import { runLoop } from "./loop.js";
 import { runCode } from "./code.js";
 import { runAsset } from "./asset.js";
+import { runApiCall } from "./apiCall.js";
 import { runSlackPost } from "./slackPost.js";
 
 export const NODE_EXECUTORS: Record<NodeKind, NodeExecutor> = {
@@ -19,6 +20,7 @@ export const NODE_EXECUTORS: Record<NodeKind, NodeExecutor> = {
   loop: runLoop,
   code: runCode,
   asset: runAsset,
+  api_call: runApiCall,
   // Approval gates are handled inline by the engine workflow (they wait on a
   // signal), never dispatched as an activity.
   approval: async () => {

@@ -46,6 +46,25 @@ export const workflowVersions = pgTable(
   (t) => [index("workflow_versions_wf_idx").on(t.workflowId)],
 );
 
+/** Expansion #3: an ingested OpenAPI spec, distilled to callable operations. */
+export const apiBlueprints = pgTable("api_blueprints", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  baseUrl: text("base_url").notNull().default(""),
+  operations: jsonb("operations")
+    .$type<
+      {
+        operationId: string;
+        method: string;
+        path: string;
+        summary: string;
+        params: { name: string; in: string; required: boolean }[];
+      }[]
+    >()
+    .notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 /** Expansion #8: a published workflow others can browse and clone. */
 export const templates = pgTable("templates", {
   id: text("id").primaryKey(),

@@ -14,6 +14,7 @@ export const NODE_KINDS = [
   "loop",
   "code",
   "asset",
+  "api_call",
   "approval",
   "slack_post",
 ] as const;
@@ -89,6 +90,17 @@ export const CodeConfig = z.object({
   timeoutMs: z.string().default("2000"),
 });
 
+export const ApiCallConfig = z.object({
+  /** Which ingested OpenAPI blueprint to use. */
+  blueprintId: z.string().min(1),
+  /** operationId within that blueprint. */
+  operationId: z.string().min(1),
+  /** JSON object (string) of param name -> value; templated. Covers path + query + body. */
+  args: z.string().default("{}"),
+  /** Optional connection (kind "http_header") for auth. */
+  connectionId: z.string().default(""),
+});
+
 export const AssetConfig = z.object({
   /** Which built-in generator to use. */
   template: z.enum(["card", "badge", "banner"]).default("card"),
@@ -135,6 +147,7 @@ export const NODE_CONFIG_SCHEMAS = {
   loop: LoopConfig,
   code: CodeConfig,
   asset: AssetConfig,
+  api_call: ApiCallConfig,
   approval: ApprovalConfig,
   slack_post: SlackPostConfig,
 } satisfies Record<NodeKind, z.ZodTypeAny>;
@@ -147,7 +160,7 @@ export type NodeConfigFor<K extends NodeKind> = z.infer<
 export interface NodeFieldSpec {
   key: string;
   label: string;
-  widget: "text" | "textarea" | "select" | "json" | "connection";
+  widget: "text" | "textarea" | "select" | "json" | "connection" | "blueprint";
   options?: string[];
   /** For widget "connection": which connection kind to offer. */
   connectionKind?: "slack" | "http_header";
@@ -371,6 +384,41 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
       { key: "title", label: "Title", widget: "text", default: "", placeholder: "{{ summarize.text }}" },
       { key: "subtitle", label: "Subtitle", widget: "text", default: "" },
       { key: "color", label: "Accent colour", widget: "text", default: "#4c8dff" },
+    ],
+  },
+  api_call: {
+    kind: "api_call",
+    title: "Custom API call",
+    description:
+      "Calls an operation from an ingested OpenAPI blueprint, with args and optional auth.",
+    isTrigger: false,
+    hasSideEffects: true,
+    configFields:
+      "blueprintId: string; operationId: string; args: string (JSON of param -> value); connectionId: string",
+    fields: [
+      { key: "blueprintId", label: "Blueprint", widget: "blueprint", default: "" },
+      {
+        key: "operationId",
+        label: "Operation",
+        widget: "text",
+        default: "",
+        help: "operationId from the blueprint (see the Blueprints manager).",
+      },
+      {
+        key: "args",
+        label: "Arguments (JSON)",
+        widget: "json",
+        default: "{}",
+        help: "param name -> value for path, query, and body params. Templated.",
+      },
+      {
+        key: "connectionId",
+        label: "Auth connection",
+        widget: "connection",
+        connectionKind: "http_header",
+        default: "",
+        optional: true,
+      },
     ],
   },
   approval: {

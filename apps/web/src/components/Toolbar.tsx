@@ -12,6 +12,7 @@ export function Toolbar() {
   const saving = useApp((s) => s.saving);
   const issues = useApp((s) => s.issues);
   const setConnectionsOpen = useApp((s) => s.setConnectionsOpen);
+  const setBlueprintsOpen = useApp((s) => s.setBlueprintsOpen);
   const toggleSelfHeal = useApp((s) => s.toggleSelfHeal);
   const publishTemplate = useApp((s) => s.publishTemplate);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -48,6 +49,7 @@ export function Toolbar() {
         Auto-layout
       </button>
       <button onClick={() => setConnectionsOpen(true)}>Connections</button>
+      <button onClick={() => setBlueprintsOpen(true)}>API blueprints</button>
       <button
         disabled={disabled || errors > 0 || published}
         title="Publish this workflow to the Templates gallery"
