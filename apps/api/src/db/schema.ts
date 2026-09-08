@@ -46,6 +46,19 @@ export const workflowVersions = pgTable(
   (t) => [index("workflow_versions_wf_idx").on(t.workflowId)],
 );
 
+/** Expansion #8: a published workflow others can browse and clone. */
+export const templates = pgTable("templates", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  category: text("category").notNull().default("general"),
+  graph: jsonb("graph").$type<WorkflowGraph>().notNull(),
+  author: text("author").notNull().default("community"),
+  builtIn: boolean("built_in").notNull().default(false),
+  cloneCount: integer("clone_count").notNull().default(0),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const runs = pgTable(
   "runs",
   {

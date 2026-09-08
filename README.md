@@ -184,8 +184,15 @@ downstream nodes to aggregate.
   templated title, subtitle, and accent colour; output carries `svg`, a base64
   `dataUri`, and dimensions, and the run panel previews the image inline.
 
+## Expansion #8 — community template marketplace (done)
+
+A third **Templates** view. `templates` table + routes: browse, `POST` publishes
+the current workflow (button in the Builder toolbar), `POST …/clone` forks a
+template into a fresh workflow and drops you back in the Builder, delete for
+community entries. Three built-in templates are seeded on first boot.
+
 ## Status
 
-Blueprint core (4 phases) + Expansion #4, #1, #5, #7, #2, #9, #10, plus a
+Blueprint core (4 phases) + Expansion #4, #1, #5, #7, #2, #8, #9, #10, plus a
 loop/iterator node. Remaining Expansion features: #3 OpenAPI ingestion, #6 local
-execution node, #8 community template marketplace.
+execution node.

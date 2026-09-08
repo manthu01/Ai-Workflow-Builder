@@ -10,7 +10,9 @@ import { deploymentRoutes, hookRoutes } from "./routes/deployments.js";
 import { scheduleRoutes } from "./routes/schedules.js";
 import { versionRoutes } from "./routes/versions.js";
 import { analyticsRoutes } from "./routes/analytics.js";
+import { templateRoutes } from "./routes/templates.js";
 import { startScheduler } from "./scheduler.js";
+import { seedTemplates } from "./seed.js";
 
 const app = new Hono();
 
@@ -31,9 +33,11 @@ app.route("/api", deploymentRoutes);
 app.route("/api", scheduleRoutes);
 app.route("/api", versionRoutes);
 app.route("/api", analyticsRoutes);
+app.route("/api/templates", templateRoutes);
 
 const port = env.API_PORT;
 serve({ fetch: app.fetch, port }, (info) => {
   console.log(`[api] listening on http://localhost:${info.port}  (compiler: ${env.COMPILER_MODE})`);
   startScheduler();
+  void seedTemplates();
 });

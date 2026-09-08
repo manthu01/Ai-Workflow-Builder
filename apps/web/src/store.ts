@@ -9,6 +9,7 @@ import type {
   NodeKind,
   RunResult,
   Schedule,
+  Template,
   WorkflowGraph,
   WorkflowNode,
   WorkflowRecord,
@@ -33,8 +34,13 @@ interface AppState {
   versions: WorkflowVersion[];
   connectionsOpen: boolean;
   setConnectionsOpen: (open: boolean) => void;
-  view: "builder" | "analytics";
-  setView: (v: "builder" | "analytics") => void;
+  view: "builder" | "analytics" | "templates";
+  setView: (v: "builder" | "analytics" | "templates") => void;
+  templates: Template[];
+  loadTemplates: () => Promise<void>;
+  publishTemplate: (description: string, category: string) => Promise<void>;
+  useTemplate: (id: string) => Promise<void>;
+  removeTemplate: (id: string) => Promise<void>;
   compiling: boolean;
   running: boolean;
   saving: boolean;
@@ -153,6 +159,61 @@ export const useApp = create<AppState>((set, get) => {
     setConnectionsOpen: (open) => set({ connectionsOpen: open }),
     view: "builder",
     setView: (v) => set({ view: v }),
+    templates: [],
+    loadTemplates: async () => {
+      try {
+        const res = await api.listTemplates();
+        set({ templates: res.templates });
+      } catch {
+        /* non-fatal */
+      }
+    },
+    publishTemplate: async (description, category) => {
+      const wf = get().workflow;
+      if (!wf) return;
+      if (persistTimer) {
+        clearTimeout(persistTimer);
+        await get().persistNow();
+      }
+      try {
+        await api.publishTemplate(wf.id, { description, category });
+        await get().loadTemplates();
+        set((s) => ({
+          chat: [...s.chat, { role: "system", text: `Published "${wf.name}" as a template.` }],
+        }));
+      } catch (err) {
+        set({ error: (err as Error).message });
+      }
+    },
+    useTemplate: async (id) => {
+      try {
+        const res = await api.cloneTemplate(id);
+        activeStream?.();
+        activeStream = null;
+        set((s) => ({
+          workflow: res.workflow,
+          issues: [],
+          run: null,
+          running: false,
+          selectedNodeId: null,
+          view: "builder",
+          chat: [
+            ...s.chat,
+            { role: "system", text: `Cloned template into "${res.workflow.name}".` },
+          ],
+        }));
+      } catch (err) {
+        set({ error: (err as Error).message });
+      }
+    },
+    removeTemplate: async (id) => {
+      try {
+        await api.deleteTemplate(id);
+        set((s) => ({ templates: s.templates.filter((t) => t.id !== id) }));
+      } catch (err) {
+        set({ error: (err as Error).message });
+      }
+    },
     compiling: false,
     running: false,
     saving: false,

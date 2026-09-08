@@ -13,7 +13,9 @@ export function Toolbar() {
   const issues = useApp((s) => s.issues);
   const setConnectionsOpen = useApp((s) => s.setConnectionsOpen);
   const toggleSelfHeal = useApp((s) => s.toggleSelfHeal);
+  const publishTemplate = useApp((s) => s.publishTemplate);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [published, setPublished] = useState(false);
 
   const errors = issues.filter((i) => i.level === "error").length;
   const disabled = !workflow;
@@ -46,6 +48,17 @@ export function Toolbar() {
         Auto-layout
       </button>
       <button onClick={() => setConnectionsOpen(true)}>Connections</button>
+      <button
+        disabled={disabled || errors > 0 || published}
+        title="Publish this workflow to the Templates gallery"
+        onClick={() => {
+          void publishTemplate("", "general");
+          setPublished(true);
+          setTimeout(() => setPublished(false), 3000);
+        }}
+      >
+        {published ? "Published ✓" : "Publish template"}
+      </button>
       <button
         disabled={disabled}
         className={workflow?.selfHeal ? "primary" : ""}

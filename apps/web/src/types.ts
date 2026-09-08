@@ -128,6 +128,20 @@ export interface Analytics {
   }[];
 }
 
+export interface Template {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  author: string;
+  builtIn: boolean;
+  cloneCount: number;
+  nodeCount: number;
+  edgeCount: number;
+  kinds: string[];
+  createdAt: string;
+}
+
 export interface WorkflowVersion {
   id: string;
   version: number;

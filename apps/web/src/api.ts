@@ -7,6 +7,7 @@ import type {
   NodeCatalogEntry,
   RunResult,
   Schedule,
+  Template,
   WorkflowGraph,
   WorkflowRecord,
   WorkflowVersion,
@@ -189,6 +190,25 @@ export const api = {
 
   deleteSchedule: (id: string) =>
     request<unknown>(`/api/schedules/${id}`, { method: "DELETE" }),
+
+  listTemplates: () => request<{ templates: Template[] }>("/api/templates"),
+
+  publishTemplate: (
+    workflowId: string,
+    body: { name?: string; description: string; category: string },
+  ) =>
+    request<{ template: Template }>("/api/templates", {
+      method: "POST",
+      body: JSON.stringify({ workflowId, ...body }),
+    }),
+
+  cloneTemplate: (id: string) =>
+    request<{ workflow: WorkflowRecord }>(`/api/templates/${id}/clone`, {
+      method: "POST",
+    }),
+
+  deleteTemplate: (id: string) =>
+    request<unknown>(`/api/templates/${id}`, { method: "DELETE" }),
 
   listVersions: (workflowId: string) =>
     request<{ versions: WorkflowVersion[] }>(`/api/workflows/${workflowId}/versions`),

@@ -6,6 +6,7 @@ import { WorkflowCanvas } from "./components/WorkflowCanvas";
 import { RightPanel } from "./components/RightPanel";
 import { ConnectionsModal } from "./components/ConnectionsModal";
 import { AnalyticsView } from "./components/AnalyticsView";
+import { TemplatesView } from "./components/TemplatesView";
 
 export function App() {
   const workflow = useApp((s) => s.workflow);
@@ -25,18 +26,15 @@ export function App() {
       <div className="topbar">
         <h1>AI Workflow Builder</h1>
         <div className="view-switch">
-          <button
-            className={view === "builder" ? "active" : ""}
-            onClick={() => setView("builder")}
-          >
-            Builder
-          </button>
-          <button
-            className={view === "analytics" ? "active" : ""}
-            onClick={() => setView("analytics")}
-          >
-            Analytics
-          </button>
+          {(["builder", "analytics", "templates"] as const).map((v) => (
+            <button
+              key={v}
+              className={view === v ? "active" : ""}
+              onClick={() => setView(v)}
+            >
+              {v.charAt(0).toUpperCase() + v.slice(1)}
+            </button>
+          ))}
         </div>
         {view === "builder" && workflow && (
           <span className="wf-name">/ {workflow.name}</span>
@@ -51,6 +49,8 @@ export function App() {
       {error && <div className="error-bar">{error}</div>}
       {view === "analytics" ? (
         <AnalyticsView />
+      ) : view === "templates" ? (
+        <TemplatesView />
       ) : (
         <div className="main">
           <ChatPanel />
