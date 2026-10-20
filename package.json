@@ -12,13 +12,13 @@
     "node": ">=20"
   },
   "scripts": {
-    "dev": "npm run build -w @awb/core && concurrently -n core,api,worker,web -c gray,green,yellow,cyan \"npm:dev:core\" \"npm:dev:api\" \"npm:dev:worker\" \"npm:dev:web\"",
+    "dev": "npm run build -w @awb/core -w @awb/embeddings && concurrently -n core,api,worker,web -c gray,green,yellow,cyan \"npm:dev:core\" \"npm:dev:api\" \"npm:dev:worker\" \"npm:dev:web\"",
     "dev:core": "npm run dev -w @awb/core",
     "dev:api": "npm run dev -w @awb/api",
     "dev:worker": "npm run dev -w @awb/worker",
     "dev:web": "npm run dev -w @awb/web",
     "local-runner": "npm run dev -w @awb/local-runner",
-    "build": "npm run build -w @awb/core && npm run build -w @awb/api && npm run build -w @awb/worker && npm run build -w @awb/web",
+    "build": "npm run build -w @awb/core && npm run build -w @awb/embeddings && npm run build -w @awb/api && npm run build -w @awb/worker && npm run build -w @awb/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down",

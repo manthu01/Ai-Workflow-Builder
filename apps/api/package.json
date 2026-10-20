@@ -15,6 +15,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.124.0",
     "@awb/core": "*",
+    "@awb/embeddings": "*",
     "@hono/node-server": "^1.14.0",
     "@temporalio/client": "^1.11.6",
     "cron-parser": "^5.10.0",

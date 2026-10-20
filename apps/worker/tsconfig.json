@@ -6,6 +6,6 @@
     "types": ["node"],
     "lib": ["ES2022"]
   },
-  "references": [{ "path": "../../packages/core" }],
+  "references": [{ "path": "../../packages/core" }, { "path": "../../packages/embeddings" }],
   "include": ["src/**/*"]
 }
