@@ -79,8 +79,9 @@ Open http://localhost:5173.
 
 ```bash
 npm run typecheck             # all workspaces
-npm test                      # unit tests (chunker, RRF, grounding)
+npm test                      # unit tests (chunker, RRF, grounding, eval scorer + report)
 npm run eval:retrieval        # retrieval eval -> apps/api/eval/results.md
+npm run eval:compiler -w apps/api -- --repeats 1   # compiler eval -> apps/api/eval/compiler-results.md
 npm run build                 # all workspaces
 npm run db:studio             # Drizzle Studio
 npm run infra:down            # stop containers
@@ -274,6 +275,40 @@ with heading-aware chunks (already 96.7% recall@1), but it compensated for coars
 ones: flat 800-token chunks went from 90.0% to 96.7% recall@1 (MRR 0.950 →
 0.983). The corpus is small (36 chunks), so treat these as a regression check
 rather than a benchmark.
+
+## Compiler evaluation (harness done, Claude numbers pending)
+
+`npm run eval:compiler -w apps/api` measures how often the NL → DAG compiler
+produces a *correct* graph, not just a valid one. Results go to
+`apps/api/eval/compiler-results.md` (tables) and `apps/api/eval/results/`
+(raw JSON).
+
+- **Test set**: 40 prompts in `apps/api/eval/compiler-cases.json` across seven
+  buckets: linear (10), branching (8), parallel fan-out (6), approval (5),
+  loop (4), RAG (4) and ambiguous/adversarial (3).
+- **Structural expectations, not a gold graph**: many different graphs are
+  correct for one request, so each case states checkable rules: required and
+  forbidden node kinds, "A must be upstream of B" (true ancestry, not array
+  order), "these two run in parallel", branch and node counts, trigger type.
+  Ambiguous cases also pass on a clean refusal.
+- **Configurations**: complexity-routed (default), always fast tier, always
+  balanced tier, and routed with the repair retry disabled. Each case runs 3
+  times by default, because model output varies between runs.
+- **Report**: valid % and structural-match % per config, average attempts,
+  p50/p95 latency, cost per compile (from the API's token `usage` and a dated
+  price table), match % per bucket, repair impact, routed vs. always-balanced
+  cost and accuracy, router decisions per tier, and every failure with its
+  reason.
+- **Safety**: a `--budget` cap (default $5) stops the run before it overspends;
+  `--repeats 1`, `--cases` and `--bucket` make cheap partial runs.
+
+The headline numbers need a paid `ANTHROPIC_API_KEY` with `COMPILER_MODE=claude`
+and haven't been run yet. With the offline stub compiler the harness runs end
+to end, but its accuracy numbers only describe the keyword stub. One finding
+doesn't depend on the model: the complexity router sends 15 of the 40 prompts
+to the fast tier, 22 to balanced and 3 (all branching) to deep, so routing is
+not guaranteed to be cheaper than always using the balanced tier. The real run
+will show whether it is.
 
 ## Status
 
