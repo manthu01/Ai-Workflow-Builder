@@ -6,8 +6,23 @@ import {
   integer,
   boolean,
   index,
+  vector,
+  customType,
 } from "drizzle-orm/pg-core";
+import { sql, type SQL } from "drizzle-orm";
 import type { WorkflowGraph } from "@awb/core";
+
+/**
+ * Width of kb_chunks.embedding. pgvector's HNSW index needs a fixed dimension,
+ * so this is one value per database: 384 matches the default local model
+ * (bge-small-en-v1.5). Switching to a provider with a different width means
+ * changing EMBEDDING_DIMENSIONS, clearing kb_chunks and re-running db:push.
+ * Read from process.env directly because drizzle-kit loads this file too.
+ */
+export const EMBEDDING_DIMENSIONS = Number(process.env.EMBEDDING_DIMENSIONS || 384);
+
+/** Postgres full-text vector; drizzle has no built-in column for it. */
+const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
 export const workflows = pgTable("workflows", {
   id: text("id").primaryKey(),
@@ -64,6 +79,75 @@ export const apiBlueprints = pgTable("api_blueprints", {
     .notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * RAG: a named collection of documents. `embeddingModel` and `dimensions` record
+ * what the chunks were embedded with; a KB is never queried with another model,
+ * since vectors from different models aren't comparable.
+ */
+export const knowledgeBases = pgTable("knowledge_bases", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull().default(""),
+  embeddingModel: text("embedding_model").notNull(),
+  dimensions: integer("dimensions").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/** One uploaded file or URL in a knowledge base, tracked through ingestion. */
+export const kbDocuments = pgTable(
+  "kb_documents",
+  {
+    id: text("id").primaryKey(),
+    kbId: text("kb_id")
+      .notNull()
+      .references(() => knowledgeBases.id, { onDelete: "cascade" }),
+    filename: text("filename").notNull(),
+    mimeType: text("mime_type").notNull(),
+    status: text("status", { enum: ["pending", "indexing", "ready", "failed"] })
+      .notNull()
+      .default("pending"),
+    error: text("error"),
+    chunkCount: integer("chunk_count").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("kb_documents_kb_idx").on(t.kbId)],
+);
+
+/**
+ * A retrievable slice of a document. `embedding` serves vector search (HNSW,
+ * cosine) and the generated `content_tsv` serves keyword search (GIN), so
+ * hybrid retrieval needs nothing beyond this table.
+ */
+export const kbChunks = pgTable(
+  "kb_chunks",
+  {
+    id: text("id").primaryKey(),
+    kbId: text("kb_id")
+      .notNull()
+      .references(() => knowledgeBases.id, { onDelete: "cascade" }),
+    documentId: text("document_id")
+      .notNull()
+      .references(() => kbDocuments.id, { onDelete: "cascade" }),
+    chunkIndex: integer("chunk_index").notNull(),
+    content: text("content").notNull(),
+    tokenCount: integer("token_count").notNull(),
+    embedding: vector("embedding", { dimensions: EMBEDDING_DIMENSIONS }).notNull(),
+    metadata: jsonb("metadata")
+      .$type<{ page?: number; heading?: string }>()
+      .notNull()
+      .default({}),
+    contentTsv: tsvector("content_tsv").generatedAlwaysAs(
+      (): SQL => sql`to_tsvector('english', ${kbChunks.content})`,
+    ),
+  },
+  (t) => [
+    index("kb_chunks_kb_idx").on(t.kbId),
+    index("kb_chunks_document_idx").on(t.documentId),
+    index("kb_chunks_embedding_idx").using("hnsw", t.embedding.op("vector_cosine_ops")),
+    index("kb_chunks_tsv_idx").using("gin", t.contentTsv),
+  ],
+);
 
 /** Expansion #8: a published workflow others can browse and clone. */
 export const templates = pgTable("templates", {
