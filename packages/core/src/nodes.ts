@@ -51,6 +51,12 @@ export const LlmConfig = z.object({
   tier: z.enum(MODEL_TIERS).default("balanced"),
   /** Explicit model id; overrides the tier when set. */
   model: z.string().default(""),
+  /**
+   * Answer only from [chunk:<id>] context in the prompt and cite it. The output
+   * gains `grounded`, false when nothing valid is cited, for a downstream
+   * branch or approval to route on. Form values are strings, hence "true".
+   */
+  requireCitations: z.preprocess((v) => v === true || v === "true", z.boolean()),
 });
 
 export const HttpRequestConfig = z.object({
@@ -245,7 +251,7 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
     isTrigger: false,
     hasSideEffects: false,
     configFields:
-      'prompt: string (supports {{ node_id.field }} templates); output: "text" | "json"',
+      'prompt: string (supports {{ node_id.field }} templates); output: "text" | "json"; requireCitations: "true" | "false" (set "true" when answering from a retrieve node {{ <id>.context }}; output then has grounded: boolean)',
     fields: [
       {
         key: "prompt",
@@ -269,6 +275,15 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
         options: ["fast", "balanced", "deep"],
         default: "balanced",
         help: "fast = cheap/simple, balanced = default, deep = hard reasoning.",
+      },
+      {
+        key: "requireCitations",
+        label: "Require citations",
+        widget: "select",
+        options: ["false", "true"],
+        default: "false",
+        optional: true,
+        help: "Answer only from retrieved context and cite [chunk:<id>]. Adds `grounded` to the output.",
       },
     ],
   },
