@@ -17,6 +17,21 @@ export interface EmbeddingProvider {
   embed(texts: string[], kind: EmbedKind): Promise<number[][]>;
 }
 
+/**
+ * Compact wire format for a vector: base64 of its float32 bytes (~2 KB for 384
+ * dims vs ~4 KB as JSON numbers). Used to keep Temporal payloads small.
+ */
+export function encodeVector(v: number[]): string {
+  return Buffer.from(new Float32Array(v).buffer).toString("base64");
+}
+
+export function decodeVector(s: string): number[] {
+  const bytes = Buffer.from(s, "base64");
+  // Copy out: Buffer.from may return a pooled, non-4-byte-aligned view.
+  const copy = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
+  return Array.from(new Float32Array(copy));
+}
+
 /** Throws if any vector's width doesn't match what the provider promised. */
 export function checkDimensions(
   vectors: number[][],

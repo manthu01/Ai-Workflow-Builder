@@ -24,6 +24,8 @@ export const EMBEDDING_DIMENSIONS = Number(process.env.EMBEDDING_DIMENSIONS || 3
 /** Postgres full-text vector; drizzle has no built-in column for it. */
 const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
+const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
+
 export const workflows = pgTable("workflows", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -104,6 +106,9 @@ export const kbDocuments = pgTable(
       .references(() => knowledgeBases.id, { onDelete: "cascade" }),
     filename: text("filename").notNull(),
     mimeType: text("mime_type").notNull(),
+    /** Uploaded file bytes; null for URL documents, which the worker fetches. */
+    source: bytea("source"),
+    sourceUrl: text("source_url"),
     status: text("status", { enum: ["pending", "indexing", "ready", "failed"] })
       .notNull()
       .default("pending"),

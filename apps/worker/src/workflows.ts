@@ -21,6 +21,8 @@ import {
   type NodeOutcome,
   type ApprovalDecision,
   type LocalResult,
+  type IngestDocumentInput,
+  type IngestDocumentResult,
 } from "@awb/core";
 import type * as activities from "./activities.js";
 
@@ -53,6 +55,54 @@ const { healNode, enqueueLocalTask } = proxyActivities<typeof activities>({
   startToCloseTimeout: "1 minute",
   retry: { maximumAttempts: 2 },
 });
+
+const { markDocumentStatus, parseDocument, chunkPages, storeChunks } = proxyActivities<
+  typeof activities
+>({
+  startToCloseTimeout: "2 minutes",
+  retry: { maximumAttempts: 3, initialInterval: "1s", backoffCoefficient: 2 },
+});
+
+// Generous: the first call in a fresh worker also loads the local model.
+const { embedChunkBatch } = proxyActivities<typeof activities>({
+  startToCloseTimeout: "5 minutes",
+  retry: { maximumAttempts: 3, initialInterval: "2s", backoffCoefficient: 2 },
+});
+
+/** Chunks per embedding activity. */
+const EMBED_BATCH = 64;
+
+/**
+ * Knowledge-base ingestion: parse -> chunk -> embed (in batches) -> store.
+ * Each step is an activity, so Temporal retries a failed step on its own
+ * without redoing the earlier ones. Any final failure is recorded on the
+ * document instead of failing the workflow, so the UI can show why.
+ */
+export async function ingestDocument(input: IngestDocumentInput): Promise<IngestDocumentResult> {
+  const { documentId } = input;
+  try {
+    await markDocumentStatus({ documentId, status: "indexing" });
+    const pages = await parseDocument({ documentId });
+    const chunks = await chunkPages({ pages });
+
+    const vectors: string[] = [];
+    let embeddingModel = "";
+    for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
+      const batch = await embedChunkBatch({
+        texts: chunks.slice(i, i + EMBED_BATCH).map((c) => c.content),
+      });
+      embeddingModel = batch.embeddingModel;
+      vectors.push(...batch.vectors);
+    }
+
+    const chunkCount = await storeChunks({ documentId, embeddingModel, chunks, vectors });
+    return { status: "ready", chunkCount };
+  } catch (err) {
+    const error = rootMessage(err);
+    await markDocumentStatus({ documentId, status: "failed", error }).catch(() => {});
+    return { status: "failed", chunkCount: 0, error };
+  }
+}
 
 const HEALABLE = new Set([
   "http_request",

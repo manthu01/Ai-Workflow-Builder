@@ -6,6 +6,13 @@ export { healNode } from "./heal.js";
 export type { HealNodeParams, HealNodeOutput } from "./heal.js";
 export { enqueueLocalTask } from "./local.js";
 export type { EnqueueLocalTaskParams } from "./local.js";
+export {
+  markDocumentStatus,
+  parseDocument,
+  chunkPages,
+  embedChunkBatch,
+  storeChunks,
+} from "./ingest/activities.js";
 
 export interface ExecuteNodeParams {
   node: WorkflowNode;

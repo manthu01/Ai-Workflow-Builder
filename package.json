@@ -20,6 +20,7 @@
     "local-runner": "npm run dev -w @awb/local-runner",
     "build": "npm run build -w @awb/core && npm run build -w @awb/embeddings && npm run build -w @awb/api && npm run build -w @awb/worker && npm run build -w @awb/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down",
     "db:push": "npm run db:push -w @awb/api",

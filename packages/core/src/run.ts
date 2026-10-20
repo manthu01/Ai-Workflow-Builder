@@ -7,6 +7,20 @@ export type RunMode = z.infer<typeof RunMode>;
 /** Temporal workflow type name shared by the API (starter) and worker. */
 export const WorkflowExecuteWorkflowType = "executeWorkflow";
 
+/** Temporal workflow type that ingests one knowledge-base document. */
+export const IngestDocumentWorkflowType = "ingestDocument";
+
+export interface IngestDocumentInput {
+  kbId: string;
+  documentId: string;
+}
+
+export interface IngestDocumentResult {
+  status: "ready" | "failed";
+  chunkCount: number;
+  error?: string;
+}
+
 /** The single argument the engine workflow receives. */
 export interface WorkflowExecutionInput {
   runId: string;

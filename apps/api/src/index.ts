@@ -13,6 +13,7 @@ import { analyticsRoutes } from "./routes/analytics.js";
 import { templateRoutes } from "./routes/templates.js";
 import { blueprintRoutes } from "./routes/blueprints.js";
 import { localTaskRoutes } from "./routes/localTasks.js";
+import { knowledgeBaseRoutes } from "./routes/knowledgeBases.js";
 import { startScheduler } from "./scheduler.js";
 import { seedTemplates } from "./seed.js";
 
@@ -38,6 +39,7 @@ app.route("/api", analyticsRoutes);
 app.route("/api/templates", templateRoutes);
 app.route("/api/blueprints", blueprintRoutes);
 app.route("/api/local-tasks", localTaskRoutes);
+app.route("/api/kbs", knowledgeBaseRoutes);
 
 const port = env.API_PORT;
 serve({ fetch: app.fetch, port }, (info) => {
