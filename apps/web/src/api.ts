@@ -2,6 +2,9 @@ import type {
   Analytics,
   ApiBlueprint,
   KnowledgeBase,
+  KbDocument,
+  RetrievalMode,
+  RetrievedChunk,
   Connection,
   ConnectionKind,
   Deployment,
@@ -31,6 +34,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw err;
   }
   return body as T;
+}
+
+/** Multipart upload; no content-type header, so the browser sets the boundary. */
+async function upload(path: string, file: File): Promise<{ document: KbDocument }> {
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(path, { method: "POST", body: form });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error ?? `${res.status} ${res.statusText}`);
+  return body as { document: KbDocument };
 }
 
 export interface CompileResponse {
@@ -144,6 +157,29 @@ export const api = {
 
   listBlueprints: () => request<{ blueprints: ApiBlueprint[] }>("/api/blueprints"),
   listKnowledgeBases: () => request<{ knowledgeBases: KnowledgeBase[] }>("/api/kbs"),
+  createKnowledgeBase: (name: string, description: string) =>
+    request<{ knowledgeBase: KnowledgeBase }>("/api/kbs", {
+      method: "POST",
+      body: JSON.stringify({ name, description }),
+    }),
+  deleteKnowledgeBase: (id: string) => request<unknown>(`/api/kbs/${id}`, { method: "DELETE" }),
+  listKbDocuments: (kbId: string) =>
+    request<{ documents: KbDocument[] }>(`/api/kbs/${kbId}/documents`),
+  uploadKbDocument: (kbId: string, file: File) => upload(`/api/kbs/${kbId}/documents`, file),
+  addKbUrl: (kbId: string, url: string) =>
+    request<{ document: KbDocument }>(`/api/kbs/${kbId}/documents`, {
+      method: "POST",
+      body: JSON.stringify({ url }),
+    }),
+  reindexKbDocument: (kbId: string, docId: string) =>
+    request<unknown>(`/api/kbs/${kbId}/documents/${docId}/reindex`, { method: "POST" }),
+  deleteKbDocument: (kbId: string, docId: string) =>
+    request<unknown>(`/api/kbs/${kbId}/documents/${docId}`, { method: "DELETE" }),
+  searchKb: (kbId: string, query: string, mode: RetrievalMode, topK: number) =>
+    request<{ chunks: RetrievedChunk[]; count: number; tookMs: number }>(`/api/kbs/${kbId}/search`, {
+      method: "POST",
+      body: JSON.stringify({ query, mode, topK }),
+    }),
   createBlueprint: (name: string, spec: string) =>
     request<{ blueprint: ApiBlueprint }>("/api/blueprints", {
       method: "POST",

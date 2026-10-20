@@ -49,6 +49,12 @@ RULES
    "items" to the array expression and "expression" to the per-item JS.
 9d. Use a "code" node when the request needs multi-line/custom JS logic beyond a
    single expression. Use an "asset" node to generate an image/card/banner.
+9e. When the request should answer questions from documents (policies, a
+   handbook, docs, a knowledge base), add a "retrieve" node whose kbId comes from
+   the KNOWLEDGE BASES list, with query set to the question from the trigger.
+   Feed it into an "llm" node whose prompt includes {{ <retrieve_id>.context }}
+   and the question, with requireCitations "true". If no knowledge base fits,
+   or none are listed, do not use retrieve.
 10. Prefer a dedicated node (slack_post) over http_request when one fits.
 11. For "trigger", pick the event: "webhook" for "when X happens in <service>",
    "schedule" for "every day / hourly", "manual" otherwise. Always include a

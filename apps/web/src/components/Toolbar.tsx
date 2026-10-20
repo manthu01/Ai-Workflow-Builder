@@ -13,6 +13,7 @@ export function Toolbar() {
   const issues = useApp((s) => s.issues);
   const setConnectionsOpen = useApp((s) => s.setConnectionsOpen);
   const setBlueprintsOpen = useApp((s) => s.setBlueprintsOpen);
+  const setKnowledgeBasesOpen = useApp((s) => s.setKnowledgeBasesOpen);
   const toggleSelfHeal = useApp((s) => s.toggleSelfHeal);
   const publishTemplate = useApp((s) => s.publishTemplate);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -50,6 +51,7 @@ export function Toolbar() {
       </button>
       <button onClick={() => setConnectionsOpen(true)}>Connections</button>
       <button onClick={() => setBlueprintsOpen(true)}>API blueprints</button>
+      <button onClick={() => setKnowledgeBasesOpen(true)}>Knowledge bases</button>
       <button
         disabled={disabled || errors > 0 || published}
         title="Publish this workflow to the Templates gallery"

@@ -1,5 +1,11 @@
 import type { CompilerGraph } from "../compiler/schema.js";
 
+export interface CompilerKnowledgeBase {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface CompileAttemptContext {
   /** Validation issues from a previous attempt, for a repair round-trip. */
   priorIssues?: string[];
@@ -7,6 +13,8 @@ export interface CompileAttemptContext {
   model?: string;
   /** Extra context (e.g. ingested API blueprints) appended for the model only. */
   extraContext?: string;
+  /** Knowledge bases a retrieve node can search (the stub matches on these). */
+  knowledgeBases?: CompilerKnowledgeBase[];
 }
 
 /**

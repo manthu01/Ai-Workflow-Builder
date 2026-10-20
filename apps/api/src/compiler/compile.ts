@@ -10,8 +10,9 @@ import {
 import type { CompilerGraph } from "./schema.js";
 import { autoLayout } from "./layout.js";
 import { env, tierModels } from "../env.js";
+import { desc, sql } from "drizzle-orm";
 import { db, schema } from "../db/client.js";
-import type { WorkflowCompilerProvider } from "../llm/provider.js";
+import type { CompilerKnowledgeBase, WorkflowCompilerProvider } from "../llm/provider.js";
 import { StubCompilerProvider } from "../llm/stub.js";
 import { AnthropicCompilerProvider } from "../llm/anthropic.js";
 
@@ -28,6 +29,32 @@ async function blueprintContext(): Promise<string> {
       ),
   );
   return `\n\nINGESTED API BLUEPRINTS (use an "api_call" node with blueprintId + operationId + args when one fits):\n${lines.join("\n")}`;
+}
+
+/** Knowledge bases with at least one indexed document; empty ones can't answer anything. */
+async function listSearchableKbs(): Promise<CompilerKnowledgeBase[]> {
+  return db
+    .select({
+      id: schema.knowledgeBases.id,
+      name: schema.knowledgeBases.name,
+      description: schema.knowledgeBases.description,
+    })
+    .from(schema.knowledgeBases)
+    .where(
+      sql`EXISTS (SELECT 1 FROM kb_documents d WHERE d.kb_id = "knowledge_bases"."id" AND d.status = 'ready')`,
+    )
+    .orderBy(desc(schema.knowledgeBases.createdAt))
+    .limit(30)
+    .catch(() => []);
+}
+
+/** The same compact listing blueprints get: enough to pick a kbId, nothing more. */
+function knowledgeBaseContext(kbs: CompilerKnowledgeBase[]): string {
+  if (kbs.length === 0) return "";
+  const lines = kbs.map(
+    (kb) => `  - kb "${kb.id}": ${kb.name}${kb.description ? ` — ${kb.description}` : ""}`,
+  );
+  return `\n\nKNOWLEDGE BASES (use a "retrieve" node with one of these kbIds when the request should answer from documents):\n${lines.join("\n")}`;
 }
 
 export class CompileError extends Error {
@@ -100,7 +127,8 @@ export async function compileWorkflow(request: string): Promise<CompileResult> {
   const model =
     env.COMPILER_MODEL || resolveModel(route.tier, undefined, tierModels);
 
-  const extraContext = await blueprintContext();
+  const knowledgeBases = await listSearchableKbs();
+  const extraContext = (await blueprintContext()) + knowledgeBaseContext(knowledgeBases);
 
   const maxAttempts = 2;
   let priorIssues: string[] | undefined;
@@ -108,7 +136,12 @@ export async function compileWorkflow(request: string): Promise<CompileResult> {
   let lastErrors: GraphIssue[] = [];
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const draft = await provider.generate(request, { priorIssues, model, extraContext });
+    const draft = await provider.generate(request, {
+      priorIssues,
+      model,
+      extraContext,
+      knowledgeBases,
+    });
     let graph: WorkflowGraph;
     try {
       graph = autoLayout(toWorkflowGraph(draft));

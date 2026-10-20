@@ -16,6 +16,7 @@ import { localTaskRoutes } from "./routes/localTasks.js";
 import { knowledgeBaseRoutes } from "./routes/knowledgeBases.js";
 import { startScheduler } from "./scheduler.js";
 import { seedTemplates } from "./seed.js";
+import { seedSampleKnowledgeBase } from "./kb/seed.js";
 
 const app = new Hono();
 
@@ -46,4 +47,5 @@ serve({ fetch: app.fetch, port }, (info) => {
   console.log(`[api] listening on http://localhost:${info.port}  (compiler: ${env.COMPILER_MODE})`);
   startScheduler();
   void seedTemplates();
+  void seedSampleKnowledgeBase();
 });

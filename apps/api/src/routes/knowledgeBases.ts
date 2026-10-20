@@ -1,14 +1,14 @@
 import { Hono } from "hono";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { IngestDocumentWorkflowType, RETRIEVAL_MODES, type IngestDocumentInput } from "@awb/core";
+import { RETRIEVAL_MODES } from "@awb/core";
 import { decodeVector } from "@awb/embeddings";
 import { db, schema } from "../db/client.js";
 import { newId } from "../id.js";
 import { env } from "../env.js";
 import { getEmbedder } from "../embeddings.js";
-import { getTemporalClient } from "../temporal/client.js";
 import { searchKb, KbNotFoundError } from "../kb/search.js";
+import { startIngestion } from "../kb/ingest.js";
 
 export const knowledgeBaseRoutes = new Hono();
 
@@ -252,25 +252,33 @@ knowledgeBaseRoutes.post("/:id/documents", async (c) => {
   }
 
   await db.insert(schema.kbDocuments).values(values);
-
-  try {
-    const client = await getTemporalClient();
-    const input: IngestDocumentInput = { kbId, documentId: id };
-    await client.workflow.start(IngestDocumentWorkflowType, {
-      taskQueue: env.TEMPORAL_TASK_QUEUE,
-      workflowId: `kb-ingest-${id}`,
-      args: [input],
-    });
-  } catch (err) {
-    await db
-      .update(schema.kbDocuments)
-      .set({ status: "failed", error: `could not start ingestion: ${(err as Error).message}` })
-      .where(eq(schema.kbDocuments.id, id));
+  if (!(await startIngestion(kbId, id))) {
     return c.json({ error: "could not start ingestion (is Temporal running?)" }, 503);
   }
 
   const [row] = await db.select(documentColumns).from(schema.kbDocuments).where(eq(schema.kbDocuments.id, id));
   return c.json({ document: row }, 202);
+});
+
+/** Re-runs ingestion, e.g. after a failure or a chunker change. */
+knowledgeBaseRoutes.post("/:id/documents/:docId/reindex", async (c) => {
+  const [doc] = await db
+    .select(documentColumns)
+    .from(schema.kbDocuments)
+    .where(
+      and(
+        eq(schema.kbDocuments.id, c.req.param("docId")),
+        eq(schema.kbDocuments.kbId, c.req.param("id")),
+      ),
+    );
+  if (!doc) return c.json({ error: "document not found" }, 404);
+  if (doc.status === "pending" || doc.status === "indexing") {
+    return c.json({ error: "document is already being indexed" }, 409);
+  }
+  if (!(await startIngestion(doc.kbId, doc.id))) {
+    return c.json({ error: "could not start ingestion (is Temporal running?)" }, 503);
+  }
+  return c.json({ ok: true }, 202);
 });
 
 knowledgeBaseRoutes.delete("/:id/documents/:docId", async (c) => {

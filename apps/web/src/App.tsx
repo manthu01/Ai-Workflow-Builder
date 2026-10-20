@@ -6,6 +6,7 @@ import { WorkflowCanvas } from "./components/WorkflowCanvas";
 import { RightPanel } from "./components/RightPanel";
 import { ConnectionsModal } from "./components/ConnectionsModal";
 import { BlueprintsModal } from "./components/BlueprintsModal";
+import { KnowledgeBasesModal } from "./components/KnowledgeBasesModal";
 import { AnalyticsView } from "./components/AnalyticsView";
 import { TemplatesView } from "./components/TemplatesView";
 
@@ -68,6 +69,7 @@ export function App() {
       )}
       <ConnectionsModal />
       <BlueprintsModal />
+      <KnowledgeBasesModal />
     </div>
   );
 }

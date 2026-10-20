@@ -142,6 +142,32 @@ export interface KnowledgeBase {
   createdAt: string;
 }
 
+export interface KbDocument {
+  id: string;
+  kbId: string;
+  filename: string;
+  mimeType: string;
+  sourceUrl: string | null;
+  status: "pending" | "indexing" | "ready" | "failed";
+  error: string | null;
+  chunkCount: number;
+  createdAt: string;
+}
+
+export type RetrievalMode = "vector" | "keyword" | "hybrid";
+
+/** Mirrors RetrievedChunk in packages/core/src/rag.ts. */
+export interface RetrievedChunk {
+  id: string;
+  content: string;
+  score: number;
+  documentId: string;
+  document: string;
+  page?: number;
+  heading?: string;
+  ranks?: { vector: number | null; keyword: number | null };
+}
+
 export interface ApiBlueprint {
   id: string;
   name: string;

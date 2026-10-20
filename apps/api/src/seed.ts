@@ -3,6 +3,7 @@ import type { WorkflowGraph } from "@awb/core";
 import { db, schema } from "./db/client.js";
 import { autoLayoutSafe } from "./routes/_shared.js";
 import { newId } from "./id.js";
+import { SAMPLE_KB_ID } from "./kb/seed.js";
 
 const g = (graph: WorkflowGraph) => autoLayoutSafe(graph);
 
@@ -164,6 +165,96 @@ const BUILT_IN: {
         { id: "e1", source: "trigger", target: "fetch", sourceHandle: "" },
         { id: "e2", source: "fetch", target: "format", sourceHandle: "" },
         { id: "e3", source: "format", target: "digest", sourceHandle: "" },
+      ],
+    }),
+  },
+  {
+    name: "Answer HR questions from the handbook",
+    description:
+      "Searches the sample employee handbook, answers with citations, and posts grounded answers to Slack. Ungrounded answers wait for a human first.",
+    category: "knowledge",
+    graph: g({
+      name: "Answer HR questions from the handbook",
+      nodes: [
+        {
+          id: "trigger",
+          kind: "trigger",
+          label: "Question asked",
+          config: {
+            event: "webhook",
+            samplePayload: JSON.stringify({
+              question: "How many vacation days can I carry over, and until when?",
+              user: "alex",
+            }),
+          },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "search_handbook",
+          kind: "retrieve",
+          label: "Search handbook",
+          config: {
+            kbId: SAMPLE_KB_ID,
+            query: "{{ trigger.question }}",
+            topK: "5",
+            mode: "hybrid",
+            minScore: "0",
+          },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "answer",
+          kind: "llm",
+          label: "Answer with citations",
+          config: {
+            output: "text",
+            tier: "balanced",
+            requireCitations: "true",
+            prompt:
+              "Answer the employee's question using only the handbook excerpts below. Be brief.\n\nExcerpts:\n{{ search_handbook.context }}\n\nQuestion: {{ trigger.question }}",
+          },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "is_grounded",
+          kind: "branch",
+          label: "Answer grounded?",
+          config: { expression: "input.answer.grounded === true" },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "post_answer",
+          kind: "slack_post",
+          label: "Post answer",
+          config: { channel: "#ask-hr", text: "{{ answer.text }}" },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "hr_review",
+          kind: "approval",
+          label: "HR reviews answer",
+          config: {
+            message:
+              "This answer isn't backed by the handbook ({{ answer.reason }}). Post it anyway?\n\n{{ answer.text }}",
+            approvers: "HR team",
+          },
+          position: { x: 0, y: 0 },
+        },
+        {
+          id: "post_reviewed",
+          kind: "slack_post",
+          label: "Post reviewed answer",
+          config: { channel: "#ask-hr", text: "{{ answer.text }}" },
+          position: { x: 0, y: 0 },
+        },
+      ],
+      edges: [
+        { id: "e1", source: "trigger", target: "search_handbook", sourceHandle: "" },
+        { id: "e2", source: "search_handbook", target: "answer", sourceHandle: "" },
+        { id: "e3", source: "answer", target: "is_grounded", sourceHandle: "" },
+        { id: "e4", source: "is_grounded", target: "post_answer", sourceHandle: "true" },
+        { id: "e5", source: "is_grounded", target: "hr_review", sourceHandle: "false" },
+        { id: "e6", source: "hr_review", target: "post_reviewed", sourceHandle: "" },
       ],
     }),
   },

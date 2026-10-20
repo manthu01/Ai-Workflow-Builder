@@ -42,8 +42,12 @@ interface AppState {
   loadBlueprints: () => Promise<void>;
   createBlueprint: (name: string, spec: string) => Promise<void>;
   removeBlueprint: (id: string) => Promise<void>;
+  knowledgeBasesOpen: boolean;
+  setKnowledgeBasesOpen: (open: boolean) => void;
   knowledgeBases: KnowledgeBase[];
   loadKnowledgeBases: () => Promise<void>;
+  createKnowledgeBase: (name: string, description: string) => Promise<KnowledgeBase | undefined>;
+  removeKnowledgeBase: (id: string) => Promise<void>;
   view: "builder" | "analytics" | "templates";
   setView: (v: "builder" | "analytics" | "templates") => void;
   templates: Template[];
@@ -195,6 +199,8 @@ export const useApp = create<AppState>((set, get) => {
         set({ error: (err as Error).message });
       }
     },
+    knowledgeBasesOpen: false,
+    setKnowledgeBasesOpen: (open) => set({ knowledgeBasesOpen: open }),
     knowledgeBases: [],
     loadKnowledgeBases: async () => {
       try {
@@ -202,6 +208,24 @@ export const useApp = create<AppState>((set, get) => {
         set({ knowledgeBases: res.knowledgeBases });
       } catch {
         /* non-fatal */
+      }
+    },
+    createKnowledgeBase: async (name, description) => {
+      try {
+        const { knowledgeBase } = await api.createKnowledgeBase(name, description);
+        await get().loadKnowledgeBases();
+        return knowledgeBase;
+      } catch (err) {
+        set({ error: (err as Error).message });
+        return undefined;
+      }
+    },
+    removeKnowledgeBase: async (id) => {
+      try {
+        await api.deleteKnowledgeBase(id);
+        set((s) => ({ knowledgeBases: s.knowledgeBases.filter((kb) => kb.id !== id) }));
+      } catch (err) {
+        set({ error: (err as Error).message });
       }
     },
     view: "builder",
