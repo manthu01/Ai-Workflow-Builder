@@ -12,7 +12,13 @@ import { autoLayout } from "./layout.js";
 import { env, tierModels } from "../env.js";
 import { desc, sql } from "drizzle-orm";
 import { db, schema } from "../db/client.js";
-import type { CompilerKnowledgeBase, WorkflowCompilerProvider } from "../llm/provider.js";
+import {
+  ZERO_USAGE,
+  addUsage,
+  type CompilerKnowledgeBase,
+  type TokenUsage,
+  type WorkflowCompilerProvider,
+} from "../llm/provider.js";
 import { StubCompilerProvider } from "../llm/stub.js";
 import { AnthropicCompilerProvider } from "../llm/anthropic.js";
 
@@ -62,6 +68,9 @@ export class CompileError extends Error {
     message: string,
     readonly issues: GraphIssue[],
     readonly draft?: WorkflowGraph,
+    readonly attempts = 0,
+    readonly usage: TokenUsage = ZERO_USAGE,
+    readonly routing?: CompileResult["routing"],
   ) {
     super(message);
     this.name = "CompileError";
@@ -114,6 +123,17 @@ export interface CompileResult {
   warnings: GraphIssue[];
   attempts: number;
   routing: { tier: ModelTier; model: string; reasons: string[] };
+  /** Summed over every attempt, including failed ones. Zero for the stub. */
+  usage: TokenUsage;
+}
+
+export interface CompileOptions {
+  /** 1 disables the validation-feedback repair retry. Default 2. */
+  maxAttempts?: number;
+  /** Skip the router and use this tier's model. */
+  tier?: ModelTier;
+  /** Skip the router and use this exact model (wins over `tier` and COMPILER_MODEL). */
+  model?: string;
 }
 
 /**
@@ -121,27 +141,37 @@ export interface CompileResult {
  * Routes the request to a model tier by complexity, then retries once with the
  * validation errors fed back to the provider.
  */
-export async function compileWorkflow(request: string): Promise<CompileResult> {
+export async function compileWorkflow(
+  request: string,
+  opts: CompileOptions = {},
+): Promise<CompileResult> {
   const provider = getCompilerProvider();
-  const route = routeCompilerTier(request);
+  const routed = routeCompilerTier(request);
+  const route = opts.tier
+    ? { tier: opts.tier, reasons: [`forced ${opts.tier} tier`] }
+    : routed;
   const model =
-    env.COMPILER_MODEL || resolveModel(route.tier, undefined, tierModels);
+    opts.model ||
+    (opts.tier ? tierModels[opts.tier] : env.COMPILER_MODEL) ||
+    resolveModel(route.tier, undefined, tierModels);
 
   const knowledgeBases = await listSearchableKbs();
   const extraContext = (await blueprintContext()) + knowledgeBaseContext(knowledgeBases);
 
-  const maxAttempts = 2;
+  const maxAttempts = opts.maxAttempts ?? 2;
   let priorIssues: string[] | undefined;
   let lastGraph: WorkflowGraph | undefined;
   let lastErrors: GraphIssue[] = [];
+  let usage = ZERO_USAGE;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const draft = await provider.generate(request, {
+    const { graph: draft, usage: callUsage } = await provider.generate(request, {
       priorIssues,
       model,
       extraContext,
       knowledgeBases,
     });
+    if (callUsage) usage = addUsage(usage, callUsage);
     let graph: WorkflowGraph;
     try {
       graph = autoLayout(toWorkflowGraph(draft));
@@ -163,6 +193,7 @@ export async function compileWorkflow(request: string): Promise<CompileResult> {
         warnings: issues.filter((i) => i.level === "warning"),
         attempts: attempt,
         routing: { tier: route.tier, model, reasons: route.reasons },
+        usage,
       };
     }
     priorIssues = errors.map((i) => (i.nodeId ? `[${i.nodeId}] ${i.message}` : i.message));
@@ -172,5 +203,8 @@ export async function compileWorkflow(request: string): Promise<CompileResult> {
     `could not compile a valid workflow after ${maxAttempts} attempts`,
     lastErrors,
     lastGraph,
+    maxAttempts,
+    usage,
+    { tier: route.tier, model, reasons: route.reasons },
   );
 }

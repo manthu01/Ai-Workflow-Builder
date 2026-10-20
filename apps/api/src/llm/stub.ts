@@ -1,6 +1,7 @@
 import type { CompilerGraph } from "../compiler/schema.js";
 import type {
   CompileAttemptContext,
+  CompilerDraft,
   CompilerKnowledgeBase,
   WorkflowCompilerProvider,
 } from "./provider.js";
@@ -27,7 +28,12 @@ function pickKnowledgeBase(r: string, kbs: CompilerKnowledgeBase[]): CompilerKno
 export class StubCompilerProvider implements WorkflowCompilerProvider {
   readonly name = "stub";
 
-  async generate(request: string, ctx?: CompileAttemptContext): Promise<CompilerGraph> {
+  async generate(request: string, ctx?: CompileAttemptContext): Promise<CompilerDraft> {
+    // No model call, so no token usage to report.
+    return { graph: this.draft(request, ctx) };
+  }
+
+  private draft(request: string, ctx?: CompileAttemptContext): CompilerGraph {
     const r = request.toLowerCase();
     const wantsSlack = /slack|#[a-z]/.test(r);
     const kbs = ctx?.knowledgeBases ?? [];

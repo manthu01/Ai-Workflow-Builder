@@ -17,6 +17,36 @@ export interface CompileAttemptContext {
   knowledgeBases?: CompilerKnowledgeBase[];
 }
 
+/** Token counts from one model call (the API response's `usage` field). */
+export interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+}
+
+export const ZERO_USAGE: TokenUsage = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+};
+
+export function addUsage(a: TokenUsage, b: TokenUsage): TokenUsage {
+  return {
+    inputTokens: a.inputTokens + b.inputTokens,
+    outputTokens: a.outputTokens + b.outputTokens,
+    cacheReadTokens: a.cacheReadTokens + b.cacheReadTokens,
+    cacheWriteTokens: a.cacheWriteTokens + b.cacheWriteTokens,
+  };
+}
+
+export interface CompilerDraft {
+  graph: CompilerGraph;
+  /** Absent when no model was called (the stub). */
+  usage?: TokenUsage;
+}
+
 /**
  * Anything that can turn a natural-language request (plus optional repair
  * feedback) into a compiler graph. Swapping providers (Claude, a stub, later
@@ -24,5 +54,5 @@ export interface CompileAttemptContext {
  */
 export interface WorkflowCompilerProvider {
   readonly name: string;
-  generate(request: string, ctx?: CompileAttemptContext): Promise<CompilerGraph>;
+  generate(request: string, ctx?: CompileAttemptContext): Promise<CompilerDraft>;
 }

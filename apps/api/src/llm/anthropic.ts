@@ -2,7 +2,6 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   CompilerGraphSchema,
   COMPILER_JSON_SCHEMA,
-  type CompilerGraph,
 } from "../compiler/schema.js";
 import {
   buildSystemPrompt,
@@ -12,6 +11,7 @@ import {
 import type {
   WorkflowCompilerProvider,
   CompileAttemptContext,
+  CompilerDraft,
 } from "./provider.js";
 
 export class AnthropicCompilerProvider implements WorkflowCompilerProvider {
@@ -28,7 +28,7 @@ export class AnthropicCompilerProvider implements WorkflowCompilerProvider {
   async generate(
     request: string,
     ctx?: CompileAttemptContext,
-  ): Promise<CompilerGraph> {
+  ): Promise<CompilerDraft> {
     const model = ctx?.model || this.fallbackModel;
     const messages: Anthropic.MessageParam[] = [
       {
@@ -70,6 +70,14 @@ export class AnthropicCompilerProvider implements WorkflowCompilerProvider {
     } catch {
       throw new Error(`compiler model did not return JSON (got ${text.slice(0, 120)}…)`);
     }
-    return CompilerGraphSchema.parse(raw);
+    return {
+      graph: CompilerGraphSchema.parse(raw),
+      usage: {
+        inputTokens: response.usage.input_tokens,
+        outputTokens: response.usage.output_tokens,
+        cacheReadTokens: response.usage.cache_read_input_tokens ?? 0,
+        cacheWriteTokens: response.usage.cache_creation_input_tokens ?? 0,
+      },
+    };
   }
 }
