@@ -18,6 +18,8 @@ export interface IngestDocumentInput {
 export interface IngestDocumentResult {
   status: "ready" | "failed";
   chunkCount: number;
+  /** Chunks whose embedding was reused because their content was unchanged. */
+  reusedCount?: number;
   error?: string;
 }
 

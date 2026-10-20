@@ -501,6 +501,7 @@ textarea {
 .kb-row { display: flex; gap: 6px; }
 .kb-row input { flex: 1; min-width: 0; }
 .kb-results { display: flex; flex-direction: column; gap: 6px; }
+.kb-check { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); white-space: nowrap; }
 
 .chunk-card {
   border: 1px solid var(--border); border-radius: 6px; background: var(--bg);

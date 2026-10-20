@@ -23,6 +23,10 @@ const EnvSchema = z.object({
   /** Must match the kb_chunks.embedding column (see db/schema.ts). */
   EMBEDDING_DIMENSIONS: z.coerce.number().int().positive().default(384),
   VOYAGE_API_KEY: z.string().optional(),
+  /** Second-pass re-ranking (retrieve nodes with rerank on): local cross-encoder or Voyage. */
+  RERANK_MODE: z.enum(["local", "voyage"]).default("local"),
+  /** Empty means the mode's default (ms-marco-MiniLM-L-6-v2 / rerank-3-lite). */
+  RERANK_MODEL: z.string().default(""),
   /** Key for the credential vault. Any string works; use 32 random bytes in prod. */
   SECRET_KEY: z.string().default("dev-insecure-secret-key-change-me"),
   /** Shared token the worker uses to resolve connection secrets from the API. */

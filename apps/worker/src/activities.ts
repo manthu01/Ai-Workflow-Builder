@@ -10,6 +10,7 @@ export {
   markDocumentStatus,
   parseDocument,
   chunkPages,
+  findReusableVectors,
   embedChunkBatch,
   storeChunks,
 } from "./ingest/activities.js";

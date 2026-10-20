@@ -1,4 +1,9 @@
-import { createEmbeddingProvider, type EmbeddingProvider } from "@awb/embeddings";
+import {
+  createEmbeddingProvider,
+  createRerankProvider,
+  type EmbeddingProvider,
+  type RerankProvider,
+} from "@awb/embeddings";
 import { env } from "./env.js";
 
 let provider: EmbeddingProvider | undefined;
@@ -12,4 +17,16 @@ export function getEmbedder(): EmbeddingProvider {
     voyageApiKey: env.VOYAGE_API_KEY,
   });
   return provider;
+}
+
+let reranker: RerankProvider | undefined;
+
+/** The configured re-ranker, built on first use (the local model loads lazily). */
+export function getReranker(): RerankProvider {
+  reranker ??= createRerankProvider({
+    mode: env.RERANK_MODE,
+    model: env.RERANK_MODEL,
+    voyageApiKey: env.VOYAGE_API_KEY,
+  });
+  return reranker;
 }

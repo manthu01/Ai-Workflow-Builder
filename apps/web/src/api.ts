@@ -163,6 +163,11 @@ export const api = {
       body: JSON.stringify({ name, description }),
     }),
   deleteKnowledgeBase: (id: string) => request<unknown>(`/api/kbs/${id}`, { method: "DELETE" }),
+  updateKnowledgeBase: (id: string, patch: { connectionId?: string | null }) =>
+    request<{ knowledgeBase: KnowledgeBase }>(`/api/kbs/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(patch),
+    }),
   listKbDocuments: (kbId: string) =>
     request<{ documents: KbDocument[] }>(`/api/kbs/${kbId}/documents`),
   uploadKbDocument: (kbId: string, file: File) => upload(`/api/kbs/${kbId}/documents`, file),
@@ -175,10 +180,10 @@ export const api = {
     request<unknown>(`/api/kbs/${kbId}/documents/${docId}/reindex`, { method: "POST" }),
   deleteKbDocument: (kbId: string, docId: string) =>
     request<unknown>(`/api/kbs/${kbId}/documents/${docId}`, { method: "DELETE" }),
-  searchKb: (kbId: string, query: string, mode: RetrievalMode, topK: number) =>
+  searchKb: (kbId: string, query: string, mode: RetrievalMode, topK: number, rerank: boolean) =>
     request<{ chunks: RetrievedChunk[]; count: number; tookMs: number }>(`/api/kbs/${kbId}/search`, {
       method: "POST",
-      body: JSON.stringify({ query, mode, topK }),
+      body: JSON.stringify({ query, mode, topK, rerank }),
     }),
   createBlueprint: (name: string, spec: string) =>
     request<{ blueprint: ApiBlueprint }>("/api/blueprints", {

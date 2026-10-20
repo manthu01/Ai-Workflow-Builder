@@ -139,6 +139,8 @@ export interface KnowledgeBase {
   dimensions: number;
   documentCount: number;
   chunkCount: number;
+  /** http_header connection used to fetch this KB's URL documents. */
+  connectionId: string | null;
   createdAt: string;
 }
 
@@ -151,6 +153,7 @@ export interface KbDocument {
   status: "pending" | "indexing" | "ready" | "failed";
   error: string | null;
   chunkCount: number;
+  reusedChunkCount: number;
   createdAt: string;
 }
 
@@ -166,6 +169,7 @@ export interface RetrievedChunk {
   page?: number;
   heading?: string;
   ranks?: { vector: number | null; keyword: number | null };
+  retrievalScore?: number;
 }
 
 export interface ApiBlueprint {

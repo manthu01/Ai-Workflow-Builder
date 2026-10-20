@@ -18,6 +18,8 @@ export interface RetrievedChunk {
   heading?: string;
   /** Hybrid only: this chunk's 1-based rank in each retriever (null = not returned). */
   ranks?: { vector: number | null; keyword: number | null };
+  /** Re-ranked only: the first-pass retrieval score; `score` is then the re-ranker's 0-1 relevance. */
+  retrievalScore?: number;
 }
 
 /** Output of a retrieve node. */

@@ -56,7 +56,7 @@ const { healNode, enqueueLocalTask } = proxyActivities<typeof activities>({
   retry: { maximumAttempts: 2 },
 });
 
-const { markDocumentStatus, parseDocument, chunkPages, storeChunks } = proxyActivities<
+const { markDocumentStatus, parseDocument, chunkPages, findReusableVectors, storeChunks } = proxyActivities<
   typeof activities
 >({
   startToCloseTimeout: "2 minutes",
@@ -75,8 +75,10 @@ const EMBED_BATCH = 64;
 /**
  * Knowledge-base ingestion: parse -> chunk -> embed (in batches) -> store.
  * Each step is an activity, so Temporal retries a failed step on its own
- * without redoing the earlier ones. Any final failure is recorded on the
- * document instead of failing the workflow, so the UI can show why.
+ * without redoing the earlier ones. Chunks whose content hash already has an
+ * embedding in the KB reuse it instead of being embedded again. Any final
+ * failure is recorded on the document instead of failing the workflow, so the
+ * UI can show why.
  */
 export async function ingestDocument(input: IngestDocumentInput): Promise<IngestDocumentResult> {
   const { documentId } = input;
@@ -85,18 +87,30 @@ export async function ingestDocument(input: IngestDocumentInput): Promise<Ingest
     const pages = await parseDocument({ documentId });
     const chunks = await chunkPages({ pages });
 
-    const vectors: string[] = [];
-    let embeddingModel = "";
-    for (let i = 0; i < chunks.length; i += EMBED_BATCH) {
-      const batch = await embedChunkBatch({
-        texts: chunks.slice(i, i + EMBED_BATCH).map((c) => c.content),
-      });
+    const reusable = await findReusableVectors({
+      documentId,
+      hashes: chunks.map((c) => c.contentHash),
+    });
+    const vectors: (string | undefined)[] = chunks.map((c) => reusable.vectors[c.contentHash]);
+    const toEmbed = chunks.flatMap((c, i) => (vectors[i] === undefined ? [i] : []));
+
+    let embeddingModel = reusable.embeddingModel;
+    for (let b = 0; b < toEmbed.length; b += EMBED_BATCH) {
+      const indexes = toEmbed.slice(b, b + EMBED_BATCH);
+      const batch = await embedChunkBatch({ texts: indexes.map((i) => chunks[i]!.content) });
       embeddingModel = batch.embeddingModel;
-      vectors.push(...batch.vectors);
+      indexes.forEach((i, j) => (vectors[i] = batch.vectors[j]));
     }
 
-    const chunkCount = await storeChunks({ documentId, embeddingModel, chunks, vectors });
-    return { status: "ready", chunkCount };
+    const reusedCount = chunks.length - toEmbed.length;
+    const chunkCount = await storeChunks({
+      documentId,
+      embeddingModel,
+      chunks,
+      vectors: vectors as string[],
+      reusedCount,
+    });
+    return { status: "ready", chunkCount, reusedCount };
   } catch (err) {
     const error = rootMessage(err);
     await markDocumentStatus({ documentId, status: "failed", error }).catch(() => {});

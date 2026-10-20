@@ -23,9 +23,17 @@ function DocumentRow({
         {doc.filename}
       </span>
       <span className="badge">{doc.status}</span>
-      {doc.status === "ready" && <span className="cfg-help">{doc.chunkCount} chunks</span>}
+      {doc.status === "ready" && (
+        <span className="cfg-help" title="reused = unchanged chunks whose embedding was kept">
+          {doc.chunkCount} chunks{doc.reusedChunkCount > 0 && ` · ${doc.reusedChunkCount} reused`}
+        </span>
+      )}
       <span style={{ marginLeft: "auto", display: "flex", gap: 6 }}>
-        {doc.status === "failed" && <button onClick={onReindex}>Retry</button>}
+        {(doc.status === "failed" || doc.status === "ready") && (
+          <button onClick={onReindex} title="Re-run ingestion; unchanged chunks keep their embeddings">
+            {doc.status === "failed" ? "Retry" : "Re-index"}
+          </button>
+        )}
         <button style={{ color: "var(--fail)" }} disabled={busy} onClick={onDelete}>
           Delete
         </button>
@@ -36,6 +44,7 @@ function DocumentRow({
 }
 
 function KbDetail({ kb, onChanged }: { kb: KnowledgeBase; onChanged: () => void }) {
+  const headerConnections = useApp((s) => s.connections).filter((c) => c.kind === "http_header");
   const [docs, setDocs] = useState<KbDocument[]>([]);
   const [url, setUrl] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -45,6 +54,7 @@ function KbDetail({ kb, onChanged }: { kb: KnowledgeBase; onChanged: () => void 
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<RetrievalMode>("hybrid");
   const [topK, setTopK] = useState(5);
+  const [rerank, setRerank] = useState(false);
   const [results, setResults] = useState<{ chunks: RetrievedChunk[]; tookMs: number } | null>(null);
   const [searching, setSearching] = useState(false);
 
@@ -100,7 +110,7 @@ function KbDetail({ kb, onChanged }: { kb: KnowledgeBase; onChanged: () => void 
     setSearching(true);
     setError("");
     try {
-      const res = await api.searchKb(kb.id, query.trim(), mode, topK);
+      const res = await api.searchKb(kb.id, query.trim(), mode, topK, rerank);
       setResults({ chunks: res.chunks, tookMs: res.tookMs });
     } catch (err) {
       setError((err as Error).message);
@@ -145,6 +155,25 @@ function KbDetail({ kb, onChanged }: { kb: KnowledgeBase; onChanged: () => void 
           onChange={(e) => void uploadFiles(e.target.files)}
         />
         <span className="cfg-help">PDF, Markdown, text or HTML, up to 10 MB each.</span>
+        <label className="cfg-field">
+          <span className="cfg-label">URL auth (optional)</span>
+          <select
+            value={kb.connectionId ?? ""}
+            onChange={(e) =>
+              void run(() => api.updateKnowledgeBase(kb.id, { connectionId: e.target.value || null }))
+            }
+          >
+            <option value="">{headerConnections.length ? "— none (public URLs) —" : "no header connections yet"}</option>
+            {headerConnections.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+          <span className="cfg-help">
+            Sent as a header when fetching this KB's URLs, for pages behind auth. Add one under Connections.
+          </span>
+        </label>
         <div className="kb-row">
           <input
             value={url}
@@ -182,6 +211,10 @@ function KbDetail({ kb, onChanged }: { kb: KnowledgeBase; onChanged: () => void 
               </option>
             ))}
           </select>
+          <label className="kb-check" title="Re-score candidates with a cross-encoder">
+            <input type="checkbox" checked={rerank} onChange={(e) => setRerank(e.target.checked)} />
+            rerank
+          </label>
           <button className="primary" disabled={searching || !query.trim()} onClick={() => void search()}>
             {searching ? "…" : "Search"}
           </button>

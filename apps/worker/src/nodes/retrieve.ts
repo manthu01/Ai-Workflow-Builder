@@ -38,6 +38,7 @@ export const runRetrieve: NodeExecutor = async (node, ctx) => {
       topK: config.topK,
       mode: config.mode,
       minScore: config.minScore,
+      rerank: config.rerank,
     }),
   });
   const body = (await res.json().catch(() => ({}))) as {
@@ -58,7 +59,7 @@ export const runRetrieve: NodeExecutor = async (node, ctx) => {
   return {
     output,
     logs: [
-      `${config.mode} search for ${JSON.stringify(query.slice(0, 120))}: ${output.count} chunk(s) in ${body.tookMs ?? "?"}ms`,
+      `${config.mode}${config.rerank ? " + rerank" : ""} search for ${JSON.stringify(query.slice(0, 120))}: ${output.count} chunk(s) in ${body.tookMs ?? "?"}ms`,
       ...(top ? [`top: ${top.document}${top.heading ? ` › ${top.heading}` : ""} (score ${top.score.toFixed(3)})`] : []),
       ...(output.count === 0 ? ["no chunks matched - the llm step will have no context"] : []),
     ],

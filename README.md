@@ -73,7 +73,7 @@ Open http://localhost:5173.
 
 - `COMPILER_MODE=stub` (default) — no API key needed, keyword-matches a graph.
 - `COMPILER_MODE=claude` — real compilation; needs `ANTHROPIC_API_KEY`. Model via `COMPILER_MODEL` (default `claude-sonnet-5`).
-- `EMBEDDINGS_MODE=local` (default) — knowledge-base embeddings run in-process; the model (~130 MB) downloads once on first use. `EMBEDDINGS_MODE=voyage` needs `VOYAGE_API_KEY` and `EMBEDDING_DIMENSIONS=1024` (then clear `kb_chunks` and re-run `db:push`).
+- `EMBEDDINGS_MODE=local` (default) — knowledge-base embeddings run in-process; the model (~130 MB) downloads once on first use. `RERANK_MODE=local` likewise for the optional re-ranker (~90 MB). `EMBEDDINGS_MODE=voyage` needs `VOYAGE_API_KEY` and `EMBEDDING_DIMENSIONS=1024` (then clear `kb_chunks` and re-run `db:push`).
 
 ## Useful commands
 
@@ -242,6 +242,17 @@ and fusion are plain code over **pgvector** in the existing Postgres.
   policy docs" compiles to `trigger → retrieve → llm → slack_post`. A sample KB
   (a fictional employee handbook, `apps/api/seed-kb/`) and an "Answer HR
   questions from the handbook" template are seeded on boot.
+- **Re-ranking** (optional, `rerank` on the retrieve node or in Test search): a
+  cross-encoder re-scores the top candidates - a local
+  `ms-marco-MiniLM-L-6-v2` by default (`RERANK_MODE=local`), or Voyage
+  `rerank-3-lite`. Its scores are 0-1 relevance but often small, so keep
+  `minScore` low when it's on.
+- **Incremental re-indexing**: every chunk stores a sha256 of its content;
+  re-indexing a document (or uploading an edited copy) only embeds chunks whose
+  text changed - the rest reuse their stored embedding.
+- **Private URLs**: a KB can use an `http_header` connection from the Secure
+  Hub; the worker resolves it at fetch time and sends it when fetching that KB's
+  URLs, so pages behind auth can be indexed without the secret leaving the vault.
 
 **Retrieval eval** (`npm run eval:retrieval`; full table in
 [`apps/api/eval/results.md`](apps/api/eval/results.md)): 30 questions over the
@@ -258,8 +269,11 @@ alone and 25 for keyword alone. Chunk size made no difference with heading-aware
 chunking, because every handbook section is under 300 tokens. With headings
 ignored ("flat" chunking), hybrid's MRR drops to 0.950 at every size, and vector
 alone falls to 73.3% recall@1 at 500 tokens - splitting on headings is worth
-more here than any size setting. The corpus is small (36 chunks), so treat these
-as a regression check rather than a benchmark.
+more here than any size setting. Re-ranking hybrid results made no difference
+with heading-aware chunks (already 96.7% recall@1), but it compensated for coarse
+ones: flat 800-token chunks went from 90.0% to 96.7% recall@1 (MRR 0.950 →
+0.983). The corpus is small (36 chunks), so treat these as a regression check
+rather than a benchmark.
 
 ## Status
 

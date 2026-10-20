@@ -120,6 +120,8 @@ export const RetrieveConfig = z.object({
   mode: z.enum(RETRIEVAL_MODES).default("hybrid"),
   /** Drop chunks scoring below this (scale depends on mode; 0 keeps all). */
   minScore: z.coerce.number().min(0).max(1).default(0),
+  /** Re-score the candidates with a cross-encoder before taking the top K. */
+  rerank: z.preprocess((v) => v === true || v === "true", z.boolean()),
 });
 
 export const AssetConfig = z.object({
@@ -470,7 +472,7 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
     isTrigger: false,
     hasSideEffects: false,
     configFields:
-      'kbId: string (knowledge base id); query: string (templated, e.g. {{ trigger.body.question }}); topK: string (1-20); mode: "vector" | "keyword" | "hybrid"; minScore: string (0-1). Output: { chunks, context, count } - put {{ <node_id>.context }} in the downstream llm prompt.',
+      'kbId: string (knowledge base id); query: string (templated, e.g. {{ trigger.body.question }}); topK: string (1-20); mode: "vector" | "keyword" | "hybrid"; minScore: string (0-1); rerank: "true" | "false". Output: { chunks, context, count } - put {{ <node_id>.context }} in the downstream llm prompt.',
     fields: [
       { key: "kbId", label: "Knowledge base", widget: "knowledge_base", default: "" },
       {
@@ -497,6 +499,15 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
         default: "0",
         optional: true,
         help: "0-1. Scale depends on mode: cosine similarity for vector, normalized fusion score for hybrid.",
+      },
+      {
+        key: "rerank",
+        label: "Re-rank",
+        widget: "select",
+        options: ["false", "true"],
+        default: "false",
+        optional: true,
+        help: "Re-score candidates with a cross-encoder (more precise, a little slower). Scores become 0-1 relevance.",
       },
     ],
   },

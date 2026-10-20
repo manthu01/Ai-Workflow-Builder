@@ -6,7 +6,7 @@ import {
 } from "@awb/core";
 import { assertKbCompatible } from "@awb/embeddings";
 import { db, schema } from "../db/client.js";
-import { getEmbedder } from "../embeddings.js";
+import { getEmbedder, getReranker } from "../embeddings.js";
 
 export interface SearchParams {
   kbId: string;
@@ -14,7 +14,12 @@ export interface SearchParams {
   topK: number;
   mode: RetrievalMode;
   minScore?: number;
+  /** Re-score the candidates with the cross-encoder before taking the top K. */
+  rerank?: boolean;
 }
+
+/** Candidates per retriever when re-ranking: enough for the cross-encoder to promote a buried answer. */
+const RERANK_CANDIDATES = 20;
 
 interface ChunkRow extends Record<string, unknown> {
   id: string;
@@ -34,10 +39,12 @@ export async function searchKb(p: SearchParams): Promise<RetrievedChunk[]> {
     .where(eq(schema.knowledgeBases.id, p.kbId));
   if (!kb) throw new KbNotFoundError(`knowledge base ${p.kbId} not found`);
 
+  // Each retriever returns its top 2K (more when re-ranking, to give it a shortlist to work with).
+  const limit = p.rerank ? Math.max(p.topK * 2, RERANK_CANDIDATES) : p.topK * 2;
+
   let chunks: RetrievedChunk[];
   if (p.mode === "hybrid") {
-    // Both retrievers see the same query; each returns its own top 2K.
-    const [vector, keyword] = await Promise.all([vectorSearch(kb, p), keywordSearch(p)]);
+    const [vector, keyword] = await Promise.all([vectorSearch(kb, p, limit), keywordSearch(p, limit)]);
     chunks = reciprocalRankFusion([vector.map(toChunk), keyword.map(toChunk)], (c) => c.id).map(
       (f) => ({
         ...f.item,
@@ -46,10 +53,20 @@ export async function searchKb(p: SearchParams): Promise<RetrievedChunk[]> {
       }),
     );
   } else {
-    const rows = p.mode === "vector" ? await vectorSearch(kb, p) : await keywordSearch(p);
+    const rows =
+      p.mode === "vector" ? await vectorSearch(kb, p, limit) : await keywordSearch(p, limit);
     chunks = rows.map(toChunk);
   }
+  if (p.rerank && chunks.length > 0) chunks = await rerank(p.query, chunks);
   return chunks.filter((c) => c.score >= (p.minScore ?? 0)).slice(0, p.topK);
+}
+
+/** Second pass: the cross-encoder's relevance replaces the score and decides the order. */
+async function rerank(query: string, chunks: RetrievedChunk[]): Promise<RetrievedChunk[]> {
+  const scores = await getReranker().rerank(query, chunks.map((c) => c.content));
+  return chunks
+    .map((c, i) => ({ ...c, retrievalScore: c.score, score: scores[i] ?? 0 }))
+    .sort((a, b) => b.score - a.score);
 }
 
 function toChunk(r: ChunkRow): RetrievedChunk {
@@ -66,7 +83,7 @@ function toChunk(r: ChunkRow): RetrievedChunk {
 
 /**
  * Nearest neighbours by cosine distance (`<=>`), scored as similarity 1 - d.
- * Fetches 2x topK so a later fusion step has candidates to work with.
+ * Fetches more than topK so fusion or re-ranking has candidates to work with.
  *
  * The kb_id filter is applied after the HNSW scan, which on its own can return
  * fewer than LIMIT rows when other KBs crowd the nearest neighbours. pgvector
@@ -76,6 +93,7 @@ function toChunk(r: ChunkRow): RetrievedChunk {
 async function vectorSearch(
   kb: typeof schema.knowledgeBases.$inferSelect,
   p: SearchParams,
+  limit: number,
 ): Promise<ChunkRow[]> {
   const embedder = getEmbedder();
   assertKbCompatible(kb, embedder);
@@ -92,7 +110,7 @@ async function vectorSearch(
         JOIN kb_documents d ON d.id = c.document_id
         WHERE c.kb_id = ${p.kbId}
         ORDER BY c.embedding <=> ${q}::vector
-        LIMIT ${p.topK * 2}
+        LIMIT ${limit}
       ) nearest
       ORDER BY score DESC, filename, chunk_index`);
     return res.rows;
@@ -105,7 +123,7 @@ async function vectorSearch(
  * chunks containing all of them. Rewriting & to | ORs the terms instead, and
  * ts_rank still rewards chunks that match more of them.
  */
-async function keywordSearch(p: SearchParams): Promise<ChunkRow[]> {
+async function keywordSearch(p: SearchParams, limit: number): Promise<ChunkRow[]> {
   const res = await db.execute<ChunkRow>(sql`
     SELECT c.id, c.content, c.metadata, c.document_id, d.filename,
            ts_rank(c.content_tsv, q.query) AS score
@@ -116,6 +134,6 @@ async function keywordSearch(p: SearchParams): Promise<ChunkRow[]> {
     -- ts_rank ties are common (same terms, similar length); break them by
     -- position so rankings, and eval numbers, are reproducible run to run.
     ORDER BY score DESC, d.filename, c.chunk_index
-    LIMIT ${p.topK * 2}`);
+    LIMIT ${limit}`);
   return res.rows;
 }

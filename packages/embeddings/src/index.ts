@@ -49,3 +49,4 @@ export function assertKbCompatible(
     );
   }
 }
+export * from "./rerank.js";

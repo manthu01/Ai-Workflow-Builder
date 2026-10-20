@@ -93,6 +93,11 @@ export const knowledgeBases = pgTable("knowledge_bases", {
   description: text("description").notNull().default(""),
   embeddingModel: text("embedding_model").notNull(),
   dimensions: integer("dimensions").notNull(),
+  /**
+   * Optional http_header connection the worker sends when fetching this KB's
+   * URL documents, for pages behind auth. The secret stays in the vault.
+   */
+  connectionId: text("connection_id").references(() => connections.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -114,6 +119,8 @@ export const kbDocuments = pgTable(
       .default("pending"),
     error: text("error"),
     chunkCount: integer("chunk_count").notNull().default(0),
+    /** Of chunkCount, how many reused an existing embedding (unchanged content). */
+    reusedChunkCount: integer("reused_chunk_count").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("kb_documents_kb_idx").on(t.kbId)],
@@ -142,6 +149,8 @@ export const kbChunks = pgTable(
       .$type<{ page?: number; heading?: string }>()
       .notNull()
       .default({}),
+    /** sha256 of content: re-indexing reuses the embedding of an unchanged chunk. */
+    contentHash: text("content_hash"),
     contentTsv: tsvector("content_tsv").generatedAlwaysAs(
       (): SQL => sql`to_tsvector('english', ${kbChunks.content})`,
     ),
@@ -149,6 +158,7 @@ export const kbChunks = pgTable(
   (t) => [
     index("kb_chunks_kb_idx").on(t.kbId),
     index("kb_chunks_document_idx").on(t.documentId),
+    index("kb_chunks_hash_idx").on(t.kbId, t.contentHash),
     index("kb_chunks_embedding_idx").using("hnsw", t.embedding.op("vector_cosine_ops")),
     index("kb_chunks_tsv_idx").using("gin", t.contentTsv),
   ],

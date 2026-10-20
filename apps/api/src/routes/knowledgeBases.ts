@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import { RETRIEVAL_MODES } from "@awb/core";
-import { decodeVector } from "@awb/embeddings";
+import { decodeVector, encodeVector } from "@awb/embeddings";
 import { db, schema } from "../db/client.js";
 import { newId } from "../id.js";
 import { env } from "../env.js";
@@ -36,16 +36,20 @@ knowledgeBaseRoutes.use("/internal/*", async (c, next) => {
 
 /** Internal: the raw document for the worker's parse activity. */
 knowledgeBaseRoutes.get("/internal/documents/:docId/source", async (c) => {
-  const [doc] = await db
-    .select()
+  const [row] = await db
+    .select({ doc: schema.kbDocuments, connectionId: schema.knowledgeBases.connectionId })
     .from(schema.kbDocuments)
+    .innerJoin(schema.knowledgeBases, eq(schema.knowledgeBases.id, schema.kbDocuments.kbId))
     .where(eq(schema.kbDocuments.id, c.req.param("docId")));
-  if (!doc) return c.json({ error: "document not found" }, 404);
+  if (!row) return c.json({ error: "document not found" }, 404);
+  const { doc } = row;
   return c.json({
     filename: doc.filename,
     mimeType: doc.mimeType,
     sourceUrl: doc.sourceUrl,
     dataBase64: doc.source ? doc.source.toString("base64") : null,
+    // Only an id: the worker resolves the secret itself, at fetch time.
+    connectionId: doc.sourceUrl ? row.connectionId : null,
   });
 });
 
@@ -64,14 +68,48 @@ knowledgeBaseRoutes.post("/internal/documents/:docId/status", async (c) => {
   return c.json({ ok: true });
 });
 
+const VectorsBody = z.object({ hashes: z.array(z.string()).max(5000) });
+
+/**
+ * Internal: existing embeddings in this document's KB for the given content
+ * hashes, so ingestion only embeds chunks whose text changed.
+ */
+knowledgeBaseRoutes.post("/internal/documents/:docId/vectors", async (c) => {
+  const parsed = VectorsBody.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid hashes" }, 400);
+  const [doc] = await db
+    .select({ kbId: schema.kbDocuments.kbId, embeddingModel: schema.knowledgeBases.embeddingModel })
+    .from(schema.kbDocuments)
+    .innerJoin(schema.knowledgeBases, eq(schema.knowledgeBases.id, schema.kbDocuments.kbId))
+    .where(eq(schema.kbDocuments.id, c.req.param("docId")));
+  if (!doc) return c.json({ error: "document not found (deleted during indexing?)" }, 404);
+
+  const vectors: Record<string, string> = {};
+  for (let i = 0; i < parsed.data.hashes.length; i += 500) {
+    const rows = await db
+      .select({ hash: schema.kbChunks.contentHash, embedding: schema.kbChunks.embedding })
+      .from(schema.kbChunks)
+      .where(
+        and(
+          eq(schema.kbChunks.kbId, doc.kbId),
+          inArray(schema.kbChunks.contentHash, parsed.data.hashes.slice(i, i + 500)),
+        ),
+      );
+    for (const r of rows) if (r.hash) vectors[r.hash] ??= encodeVector(r.embedding);
+  }
+  return c.json({ embeddingModel: doc.embeddingModel, vectors });
+});
+
 const ChunksBody = z.object({
   embeddingModel: z.string(),
+  reusedCount: z.number().int().min(0).default(0),
   chunks: z.array(
     z.object({
       chunkIndex: z.number().int(),
       content: z.string(),
       tokenCount: z.number().int(),
       metadata: z.object({ page: z.number().optional(), heading: z.string().optional() }),
+      contentHash: z.string().optional(),
       vector: z.string(),
     }),
   ),
@@ -121,12 +159,18 @@ knowledgeBaseRoutes.post("/internal/documents/:docId/chunks", async (c) => {
           tokenCount: ch.tokenCount,
           embedding: decodeVector(ch.vector),
           metadata: ch.metadata,
+          contentHash: ch.contentHash ?? null,
         })),
       );
     }
     await tx
       .update(schema.kbDocuments)
-      .set({ status: "ready", error: null, chunkCount: chunks.length })
+      .set({
+        status: "ready",
+        error: null,
+        chunkCount: chunks.length,
+        reusedChunkCount: parsed.data.reusedCount,
+      })
       .where(eq(schema.kbDocuments.id, docId));
   });
   return c.json({ ok: true, chunkCount: chunks.length });
@@ -148,6 +192,7 @@ knowledgeBaseRoutes.get("/", async (c) => {
       description: schema.knowledgeBases.description,
       embeddingModel: schema.knowledgeBases.embeddingModel,
       dimensions: schema.knowledgeBases.dimensions,
+      connectionId: schema.knowledgeBases.connectionId,
       createdAt: schema.knowledgeBases.createdAt,
       // Spelled out: drizzle renders the column unqualified, which inside the
       // subquery would resolve to the inner table's own id.
@@ -162,6 +207,42 @@ knowledgeBaseRoutes.get("/", async (c) => {
 const CreateBody = z.object({
   name: z.string().trim().min(1).max(120),
   description: z.string().max(1000).default(""),
+});
+
+/** null when unset; otherwise the id of an http_header connection, or an error message. */
+async function checkUrlConnection(id: string | null): Promise<string | null> {
+  if (id === null) return null;
+  const [conn] = await db
+    .select({ kind: schema.connections.kind })
+    .from(schema.connections)
+    .where(eq(schema.connections.id, id));
+  if (!conn) return "connection not found";
+  if (conn.kind !== "http_header") return "URL auth needs an http_header connection";
+  return null;
+}
+
+const UpdateBody = z.object({
+  name: z.string().trim().min(1).max(120).optional(),
+  description: z.string().max(1000).optional(),
+  /** http_header connection used when fetching this KB's URL documents; null clears it. */
+  connectionId: z.string().min(1).nullable().optional(),
+});
+
+knowledgeBaseRoutes.patch("/:id", async (c) => {
+  const parsed = UpdateBody.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: "invalid update" }, 400);
+  if (Object.keys(parsed.data).length === 0) return c.json({ error: "nothing to update" }, 400);
+  if (parsed.data.connectionId !== undefined) {
+    const problem = await checkUrlConnection(parsed.data.connectionId);
+    if (problem) return c.json({ error: problem }, 422);
+  }
+  const [row] = await db
+    .update(schema.knowledgeBases)
+    .set(parsed.data)
+    .where(eq(schema.knowledgeBases.id, c.req.param("id")))
+    .returning();
+  if (!row) return c.json({ error: "knowledge base not found" }, 404);
+  return c.json({ knowledgeBase: row });
 });
 
 knowledgeBaseRoutes.post("/", async (c) => {
@@ -202,6 +283,7 @@ const documentColumns = {
   status: schema.kbDocuments.status,
   error: schema.kbDocuments.error,
   chunkCount: schema.kbDocuments.chunkCount,
+  reusedChunkCount: schema.kbDocuments.reusedChunkCount,
   createdAt: schema.kbDocuments.createdAt,
 };
 
@@ -298,6 +380,7 @@ const SearchBody = z.object({
   topK: z.number().int().min(1).max(20).default(5),
   mode: z.enum(RETRIEVAL_MODES).default("hybrid"),
   minScore: z.number().min(0).max(1).default(0),
+  rerank: z.boolean().default(false),
 });
 
 async function runSearch(kbId: string, raw: unknown) {

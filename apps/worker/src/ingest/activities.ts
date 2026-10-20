@@ -1,7 +1,9 @@
+import { createHash } from "node:crypto";
 import { ApplicationFailure } from "@temporalio/activity";
 import { chunkDocument, type Chunk, type ChunkSourcePage } from "@awb/core";
 import { encodeVector } from "@awb/embeddings";
 import { env } from "../env.js";
+import { resolveConnection } from "../connections.js";
 import { getEmbedder } from "../embeddings.js";
 import { normalizeMime, parseBytes } from "./parse.js";
 
@@ -49,6 +51,7 @@ export async function parseDocument(p: { documentId: string }): Promise<ChunkSou
     mimeType: string;
     sourceUrl: string | null;
     dataBase64: string | null;
+    connectionId: string | null;
   }>(`/documents/${p.documentId}/source`);
 
   let bytes: Uint8Array;
@@ -56,10 +59,19 @@ export async function parseDocument(p: { documentId: string }): Promise<ChunkSou
   if (src.dataBase64 !== null) {
     bytes = Buffer.from(src.dataBase64, "base64");
   } else if (src.sourceUrl) {
-    const res = await fetch(src.sourceUrl, {
-      signal: AbortSignal.timeout(20_000),
-      headers: { accept: "text/html,application/pdf,text/plain;q=0.9,*/*;q=0.5" },
-    });
+    const headers: Record<string, string> = {
+      accept: "text/html,application/pdf,text/plain;q=0.9,*/*;q=0.5",
+    };
+    if (src.connectionId) {
+      // The KB's vault connection (e.g. a bearer token for an intranet wiki).
+      // The secret is resolved here and lives only in this activity's memory.
+      const conn = await resolveConnection(src.connectionId);
+      if (conn.kind !== "http_header") {
+        throw ApplicationFailure.nonRetryable("URL auth connection must be of kind http_header");
+      }
+      headers[conn.secret.headerName] = conn.secret.headerValue;
+    }
+    const res = await fetch(src.sourceUrl, { signal: AbortSignal.timeout(20_000), headers });
     if (!res.ok) {
       const msg = `fetching ${src.sourceUrl} failed: HTTP ${res.status}`;
       throw res.status >= 500 ? new Error(msg) : ApplicationFailure.nonRetryable(msg);
@@ -96,9 +108,33 @@ export async function parseDocument(p: { documentId: string }): Promise<ChunkSou
   return pages;
 }
 
-/** Step 2: split into ~500-token overlapping chunks (packages/core/src/chunk.ts). */
-export async function chunkPages(p: { pages: ChunkSourcePage[] }): Promise<Chunk[]> {
-  return chunkDocument(p.pages);
+export type HashedChunk = Chunk & { contentHash: string };
+
+/**
+ * Step 2: split into ~500-token overlapping chunks (packages/core/src/chunk.ts),
+ * each with a sha256 of its content for incremental re-indexing.
+ */
+export async function chunkPages(p: { pages: ChunkSourcePage[] }): Promise<HashedChunk[]> {
+  return chunkDocument(p.pages).map((c) => ({
+    ...c,
+    contentHash: createHash("sha256").update(c.content).digest("hex"),
+  }));
+}
+
+/**
+ * Step 2b: embeddings this KB already has for any of these content hashes.
+ * Re-indexing an edited document, or re-uploading a file, then only embeds the
+ * chunks whose text actually changed. Safe because every chunk in a KB was
+ * embedded with the same model.
+ */
+export async function findReusableVectors(p: {
+  documentId: string;
+  hashes: string[];
+}): Promise<{ embeddingModel: string; vectors: Record<string, string> }> {
+  return internal(`/documents/${p.documentId}/vectors`, {
+    method: "POST",
+    body: { hashes: [...new Set(p.hashes)] },
+  });
 }
 
 /** Step 3: embed one batch. Each batch is its own activity, so a failure retries only that batch. */
@@ -114,8 +150,9 @@ export async function embedChunkBatch(p: {
 export async function storeChunks(p: {
   documentId: string;
   embeddingModel: string;
-  chunks: Chunk[];
+  chunks: HashedChunk[];
   vectors: string[];
+  reusedCount: number;
 }): Promise<number> {
   const { chunkCount } = await internal<{ chunkCount: number }>(
     `/documents/${p.documentId}/chunks`,
@@ -123,6 +160,7 @@ export async function storeChunks(p: {
       method: "POST",
       body: {
         embeddingModel: p.embeddingModel,
+        reusedCount: p.reusedCount,
         chunks: p.chunks.map((ch, i) => ({ ...ch, vector: p.vectors[i] })),
       },
     },
