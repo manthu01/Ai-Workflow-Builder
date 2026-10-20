@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { api } from "./api";
 import type {
   ApiBlueprint,
+  KnowledgeBase,
   Connection,
   ConnectionKind,
   Deployment,
@@ -41,6 +42,8 @@ interface AppState {
   loadBlueprints: () => Promise<void>;
   createBlueprint: (name: string, spec: string) => Promise<void>;
   removeBlueprint: (id: string) => Promise<void>;
+  knowledgeBases: KnowledgeBase[];
+  loadKnowledgeBases: () => Promise<void>;
   view: "builder" | "analytics" | "templates";
   setView: (v: "builder" | "analytics" | "templates") => void;
   templates: Template[];
@@ -190,6 +193,15 @@ export const useApp = create<AppState>((set, get) => {
         set((s) => ({ blueprints: s.blueprints.filter((b) => b.id !== id) }));
       } catch (err) {
         set({ error: (err as Error).message });
+      }
+    },
+    knowledgeBases: [],
+    loadKnowledgeBases: async () => {
+      try {
+        const res = await api.listKnowledgeBases();
+        set({ knowledgeBases: res.knowledgeBases });
+      } catch {
+        /* non-fatal */
       }
     },
     view: "builder",

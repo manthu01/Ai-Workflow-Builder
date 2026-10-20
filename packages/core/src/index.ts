@@ -4,3 +4,5 @@ export * from "./template.js";
 export * from "./run.js";
 export * from "./models.js";
 export * from "./chunk.js";
+export * from "./rrf.js";
+export * from "./rag.js";

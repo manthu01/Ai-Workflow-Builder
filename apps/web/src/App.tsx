@@ -17,12 +17,14 @@ export function App() {
   const loadCatalog = useApp((s) => s.loadCatalog);
   const loadConnections = useApp((s) => s.loadConnections);
   const loadBlueprints = useApp((s) => s.loadBlueprints);
+  const loadKnowledgeBases = useApp((s) => s.loadKnowledgeBases);
 
   useEffect(() => {
     void loadCatalog();
     void loadConnections();
     void loadBlueprints();
-  }, [loadCatalog, loadConnections, loadBlueprints]);
+    void loadKnowledgeBases();
+  }, [loadCatalog, loadConnections, loadBlueprints, loadKnowledgeBases]);
 
   return (
     <div className="app">

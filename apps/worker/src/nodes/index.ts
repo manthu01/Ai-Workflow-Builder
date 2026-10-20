@@ -9,6 +9,7 @@ import { runLoop } from "./loop.js";
 import { runCode } from "./code.js";
 import { runAsset } from "./asset.js";
 import { runApiCall } from "./apiCall.js";
+import { runRetrieve } from "./retrieve.js";
 import { runSlackPost } from "./slackPost.js";
 
 export const NODE_EXECUTORS: Record<NodeKind, NodeExecutor> = {
@@ -21,6 +22,7 @@ export const NODE_EXECUTORS: Record<NodeKind, NodeExecutor> = {
   code: runCode,
   asset: runAsset,
   api_call: runApiCall,
+  retrieve: runRetrieve,
   // Approval + local nodes are handled inline by the engine workflow (they wait
   // on a signal), never dispatched as an activity.
   approval: async () => {

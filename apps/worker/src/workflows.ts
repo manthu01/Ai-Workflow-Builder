@@ -113,6 +113,7 @@ const HEALABLE = new Set([
   "loop",
   "code",
   "api_call",
+  "retrieve",
 ]);
 
 /**

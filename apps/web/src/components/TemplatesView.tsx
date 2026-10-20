@@ -11,6 +11,7 @@ const KIND_LABEL: Record<string, string> = {
   code: "code",
   asset: "asset",
   api_call: "API",
+  retrieve: "retrieve",
   local: "local",
   approval: "approval",
   slack_post: "Slack",

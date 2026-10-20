@@ -8,6 +8,7 @@ export type NodeKind =
   | "code"
   | "asset"
   | "api_call"
+  | "retrieve"
   | "local"
   | "approval"
   | "slack_post";
@@ -54,7 +55,7 @@ export interface GraphIssue {
 export interface NodeFieldSpec {
   key: string;
   label: string;
-  widget: "text" | "textarea" | "select" | "json" | "connection" | "blueprint";
+  widget: "text" | "textarea" | "select" | "json" | "connection" | "blueprint" | "knowledge_base";
   options?: string[];
   connectionKind?: "slack" | "http_header";
   placeholder?: string;
@@ -128,6 +129,17 @@ export interface Analytics {
     startedAt: string;
     durationMs: number | null;
   }[];
+}
+
+export interface KnowledgeBase {
+  id: string;
+  name: string;
+  description: string;
+  embeddingModel: string;
+  dimensions: number;
+  documentCount: number;
+  chunkCount: number;
+  createdAt: string;
 }
 
 export interface ApiBlueprint {

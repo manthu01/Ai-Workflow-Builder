@@ -1,6 +1,7 @@
 import type {
   Analytics,
   ApiBlueprint,
+  KnowledgeBase,
   Connection,
   ConnectionKind,
   Deployment,
@@ -142,6 +143,7 @@ export const api = {
   listConnections: () => request<{ connections: Connection[] }>("/api/connections"),
 
   listBlueprints: () => request<{ blueprints: ApiBlueprint[] }>("/api/blueprints"),
+  listKnowledgeBases: () => request<{ knowledgeBases: KnowledgeBase[] }>("/api/kbs"),
   createBlueprint: (name: string, spec: string) =>
     request<{ blueprint: ApiBlueprint }>("/api/blueprints", {
       method: "POST",

@@ -1,26 +1,19 @@
 import { eq, sql } from "drizzle-orm";
+import {
+  reciprocalRankFusion,
+  type RetrievalMode,
+  type RetrievedChunk,
+} from "@awb/core";
 import { assertKbCompatible } from "@awb/embeddings";
 import { db, schema } from "../db/client.js";
 import { getEmbedder } from "../embeddings.js";
-
-export type SearchMode = "vector" | "keyword";
 
 export interface SearchParams {
   kbId: string;
   query: string;
   topK: number;
-  mode: SearchMode;
+  mode: RetrievalMode;
   minScore?: number;
-}
-
-export interface RetrievedChunk {
-  id: string;
-  content: string;
-  score: number;
-  documentId: string;
-  document: string;
-  page?: number;
-  heading?: string;
 }
 
 interface ChunkRow extends Record<string, unknown> {
@@ -41,19 +34,34 @@ export async function searchKb(p: SearchParams): Promise<RetrievedChunk[]> {
     .where(eq(schema.knowledgeBases.id, p.kbId));
   if (!kb) throw new KbNotFoundError(`knowledge base ${p.kbId} not found`);
 
-  const rows = p.mode === "vector" ? await vectorSearch(kb, p) : await keywordSearch(p);
-  return rows
-    .filter((r) => r.score >= (p.minScore ?? 0))
-    .slice(0, p.topK)
-    .map((r) => ({
-      id: r.id,
-      content: r.content,
-      score: Number(r.score),
-      documentId: r.document_id,
-      document: r.filename,
-      ...(r.metadata.page !== undefined && { page: r.metadata.page }),
-      ...(r.metadata.heading !== undefined && { heading: r.metadata.heading }),
-    }));
+  let chunks: RetrievedChunk[];
+  if (p.mode === "hybrid") {
+    // Both retrievers see the same query; each returns its own top 2K.
+    const [vector, keyword] = await Promise.all([vectorSearch(kb, p), keywordSearch(p)]);
+    chunks = reciprocalRankFusion([vector.map(toChunk), keyword.map(toChunk)], (c) => c.id).map(
+      (f) => ({
+        ...f.item,
+        score: f.score,
+        ranks: { vector: f.ranks[0] ?? null, keyword: f.ranks[1] ?? null },
+      }),
+    );
+  } else {
+    const rows = p.mode === "vector" ? await vectorSearch(kb, p) : await keywordSearch(p);
+    chunks = rows.map(toChunk);
+  }
+  return chunks.filter((c) => c.score >= (p.minScore ?? 0)).slice(0, p.topK);
+}
+
+function toChunk(r: ChunkRow): RetrievedChunk {
+  return {
+    id: r.id,
+    content: r.content,
+    score: Number(r.score),
+    documentId: r.document_id,
+    document: r.filename,
+    ...(r.metadata.page !== undefined && { page: r.metadata.page }),
+    ...(r.metadata.heading !== undefined && { heading: r.metadata.heading }),
+  };
 }
 
 /**

@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { z } from "zod";
-import { IngestDocumentWorkflowType, type IngestDocumentInput } from "@awb/core";
+import { IngestDocumentWorkflowType, RETRIEVAL_MODES, type IngestDocumentInput } from "@awb/core";
 import { decodeVector } from "@awb/embeddings";
 import { db, schema } from "../db/client.js";
 import { newId } from "../id.js";
@@ -130,6 +130,12 @@ knowledgeBaseRoutes.post("/internal/documents/:docId/chunks", async (c) => {
       .where(eq(schema.kbDocuments.id, docId));
   });
   return c.json({ ok: true, chunkCount: chunks.length });
+});
+
+/** Internal: the retrieve node's search (same code path as the UI test bench). */
+knowledgeBaseRoutes.post("/internal/:kbId/search", async (c) => {
+  const { status, body } = await runSearch(c.req.param("kbId"), await c.req.json().catch(() => ({})));
+  return c.json(body, status);
 });
 
 // --- Public endpoints ---
@@ -282,20 +288,27 @@ knowledgeBaseRoutes.delete("/:id/documents/:docId", async (c) => {
 const SearchBody = z.object({
   query: z.string().trim().min(1),
   topK: z.number().int().min(1).max(20).default(5),
-  mode: z.enum(["vector", "keyword"]).default("vector"),
+  mode: z.enum(RETRIEVAL_MODES).default("hybrid"),
   minScore: z.number().min(0).max(1).default(0),
 });
 
-/** Retrieval test bench for the UI (the retrieve node uses the same searchKb). */
-knowledgeBaseRoutes.post("/:id/search", async (c) => {
-  const parsed = SearchBody.safeParse(await c.req.json().catch(() => ({})));
-  if (!parsed.success) return c.json({ error: parsed.error.issues[0]?.message ?? "invalid search" }, 400);
+async function runSearch(kbId: string, raw: unknown) {
+  const parsed = SearchBody.safeParse(raw);
+  if (!parsed.success) {
+    return { status: 400 as const, body: { error: parsed.error.issues[0]?.message ?? "invalid search" } };
+  }
   try {
     const started = Date.now();
-    const chunks = await searchKb({ kbId: c.req.param("id"), ...parsed.data });
-    return c.json({ chunks, count: chunks.length, tookMs: Date.now() - started });
+    const chunks = await searchKb({ kbId, ...parsed.data });
+    return { status: 200 as const, body: { chunks, count: chunks.length, tookMs: Date.now() - started } };
   } catch (err) {
-    if (err instanceof KbNotFoundError) return c.json({ error: err.message }, 404);
-    return c.json({ error: (err as Error).message }, 422);
+    if (err instanceof KbNotFoundError) return { status: 404 as const, body: { error: err.message } };
+    return { status: 422 as const, body: { error: (err as Error).message } };
   }
+}
+
+/** Retrieval test bench for the UI. */
+knowledgeBaseRoutes.post("/:id/search", async (c) => {
+  const { status, body } = await runSearch(c.req.param("id"), await c.req.json().catch(() => ({})));
+  return c.json(body, status);
 });

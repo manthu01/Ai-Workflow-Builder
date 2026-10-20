@@ -1,5 +1,5 @@
 import { useApp } from "../store";
-import type { ApiBlueprint, Connection, NodeFieldSpec } from "../types";
+import type { ApiBlueprint, Connection, KnowledgeBase, NodeFieldSpec } from "../types";
 
 function Field({
   spec,
@@ -7,6 +7,7 @@ function Field({
   invalid,
   connections,
   blueprints,
+  knowledgeBases,
   onChange,
 }: {
   spec: NodeFieldSpec;
@@ -14,6 +15,7 @@ function Field({
   invalid: boolean;
   connections: Connection[];
   blueprints: ApiBlueprint[];
+  knowledgeBases: KnowledgeBase[];
   onChange: (v: string) => void;
 }) {
   const common = {
@@ -28,7 +30,18 @@ function Field({
         {spec.label}
         {spec.optional && <span className="cfg-optional"> (optional)</span>}
       </span>
-      {spec.widget === "blueprint" ? (
+      {spec.widget === "knowledge_base" ? (
+        <select {...common}>
+          <option value="">
+            {knowledgeBases.length ? "— choose —" : "no knowledge bases yet"}
+          </option>
+          {knowledgeBases.map((kb) => (
+            <option key={kb.id} value={kb.id}>
+              {kb.name} ({kb.documentCount} docs)
+            </option>
+          ))}
+        </select>
+      ) : spec.widget === "blueprint" ? (
         <select {...common}>
           <option value="">
             {blueprints.length ? "— none —" : "no blueprints yet"}
@@ -80,6 +93,7 @@ export function NodeConfigPanel() {
   const issues = useApp((s) => s.issues);
   const connections = useApp((s) => s.connections);
   const blueprints = useApp((s) => s.blueprints);
+  const knowledgeBases = useApp((s) => s.knowledgeBases);
   const updateNode = useApp((s) => s.updateNode);
   const deleteNode = useApp((s) => s.deleteNode);
 
@@ -128,6 +142,7 @@ export function NodeConfigPanel() {
           invalid={invalidKeys.has(spec.key)}
           connections={connections}
           blueprints={blueprints}
+          knowledgeBases={knowledgeBases}
           onChange={(v) => updateNode(node.id, { config: { [spec.key]: v } })}
         />
       ))}

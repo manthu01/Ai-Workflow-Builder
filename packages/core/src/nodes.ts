@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RETRIEVAL_MODES } from "./rag.js";
 
 /**
  * The set of node kinds the compiler can emit and the engine can execute in
@@ -15,6 +16,7 @@ export const NODE_KINDS = [
   "code",
   "asset",
   "api_call",
+  "retrieve",
   "local",
   "approval",
   "slack_post",
@@ -102,6 +104,18 @@ export const ApiCallConfig = z.object({
   connectionId: z.string().default(""),
 });
 
+export const RetrieveConfig = z.object({
+  /** Which knowledge base to search. */
+  kbId: z.string().min(1),
+  /** What to search for. Templated, e.g. {{ trigger.body.question }}. */
+  query: z.string().min(1),
+  /** How many chunks to return. Form fields are strings, hence the coercion. */
+  topK: z.coerce.number().int().min(1).max(20).default(5),
+  mode: z.enum(RETRIEVAL_MODES).default("hybrid"),
+  /** Drop chunks scoring below this (scale depends on mode; 0 keeps all). */
+  minScore: z.coerce.number().min(0).max(1).default(0),
+});
+
 export const AssetConfig = z.object({
   /** Which built-in generator to use. */
   template: z.enum(["card", "badge", "banner"]).default("card"),
@@ -158,6 +172,7 @@ export const NODE_CONFIG_SCHEMAS = {
   code: CodeConfig,
   asset: AssetConfig,
   api_call: ApiCallConfig,
+  retrieve: RetrieveConfig,
   local: LocalConfig,
   approval: ApprovalConfig,
   slack_post: SlackPostConfig,
@@ -171,7 +186,7 @@ export type NodeConfigFor<K extends NodeKind> = z.infer<
 export interface NodeFieldSpec {
   key: string;
   label: string;
-  widget: "text" | "textarea" | "select" | "json" | "connection" | "blueprint";
+  widget: "text" | "textarea" | "select" | "json" | "connection" | "blueprint" | "knowledge_base";
   options?: string[];
   /** For widget "connection": which connection kind to offer. */
   connectionKind?: "slack" | "http_header";
@@ -429,6 +444,44 @@ export const NODE_CATALOG: Record<NodeKind, NodeCatalogEntry> = {
         connectionKind: "http_header",
         default: "",
         optional: true,
+      },
+    ],
+  },
+  retrieve: {
+    kind: "retrieve",
+    title: "Retrieve (knowledge base)",
+    description:
+      "Finds the passages of a knowledge base most relevant to a query, for an llm step to answer from with citations. Use whenever a workflow should answer from the user's own documents.",
+    isTrigger: false,
+    hasSideEffects: false,
+    configFields:
+      'kbId: string (knowledge base id); query: string (templated, e.g. {{ trigger.body.question }}); topK: string (1-20); mode: "vector" | "keyword" | "hybrid"; minScore: string (0-1). Output: { chunks, context, count } - put {{ <node_id>.context }} in the downstream llm prompt.',
+    fields: [
+      { key: "kbId", label: "Knowledge base", widget: "knowledge_base", default: "" },
+      {
+        key: "query",
+        label: "Query",
+        widget: "textarea",
+        default: "",
+        placeholder: "{{ trigger.body.question }}",
+        help: "What to search for. Supports {{ node_id.field }} templates.",
+      },
+      { key: "topK", label: "Results (top K)", widget: "text", default: "5", help: "1-20 chunks." },
+      {
+        key: "mode",
+        label: "Search mode",
+        widget: "select",
+        options: [...RETRIEVAL_MODES],
+        default: "hybrid",
+        help: "hybrid fuses vector (meaning) and keyword (exact terms) rankings.",
+      },
+      {
+        key: "minScore",
+        label: "Minimum score",
+        widget: "text",
+        default: "0",
+        optional: true,
+        help: "0-1. Scale depends on mode: cosine similarity for vector, normalized fusion score for hybrid.",
       },
     ],
   },
