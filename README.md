@@ -64,8 +64,8 @@ Prereqs: Node 20+, Docker Desktop.
 ```bash
 npm install
 cp .env.example .env          # add ANTHROPIC_API_KEY for the real compiler; set SECRET_KEY for prod
-npm run infra:up              # Postgres + Temporal (Temporal UI: http://localhost:8233)
-npm run db:push               # create tables
+npm run infra:up              # Postgres (with pgvector) + Temporal (Temporal UI: http://localhost:8233)
+npm run db:push               # enable pgvector + create tables
 npm run dev                   # core (watch) + api :8787 + worker + web :5173
 ```
 
@@ -73,11 +73,14 @@ Open http://localhost:5173.
 
 - `COMPILER_MODE=stub` (default) — no API key needed, keyword-matches a graph.
 - `COMPILER_MODE=claude` — real compilation; needs `ANTHROPIC_API_KEY`. Model via `COMPILER_MODEL` (default `claude-sonnet-5`).
+- `EMBEDDINGS_MODE=local` (default) — knowledge-base embeddings run in-process; the model (~130 MB) downloads once on first use. `EMBEDDINGS_MODE=voyage` needs `VOYAGE_API_KEY` and `EMBEDDING_DIMENSIONS=1024` (then clear `kb_chunks` and re-run `db:push`).
 
 ## Useful commands
 
 ```bash
 npm run typecheck             # all workspaces
+npm test                      # unit tests (chunker, RRF, grounding)
+npm run eval:retrieval        # retrieval eval -> apps/api/eval/results.md
 npm run build                 # all workspaces
 npm run db:studio             # Drizzle Studio
 npm run infra:down            # stop containers
@@ -209,7 +212,56 @@ workflow pauses on a Temporal signal (`awaiting`). A standalone poller —
 in its working directory, and POSTs back stdout/stderr/exitCode, which signals
 the run to resume (or fail on a non-zero exit / a 15-minute no-response timeout).
 
+## Knowledge Bases (RAG) (done)
+
+Workflows can answer from your own documents. Upload PDFs, Markdown, text, HTML
+or a URL into a **knowledge base** (toolbar → **Knowledge bases**); a **`retrieve`
+node** finds the most relevant chunks for a templated query, and an `llm` node
+with **Require citations** answers from them, citing `[chunk:<id>]`. No RAG
+framework and no separate vector database: chunking, embedding calls, retrieval
+and fusion are plain code over **pgvector** in the existing Postgres.
+
+- **Ingestion** is a Temporal workflow (`ingestDocument`): parse → chunk →
+  embed in batches of 64 → store in one transaction, each step its own activity
+  with its own retries. The chunker (`packages/core/src/chunk.ts`) targets ~500
+  tokens with ~75 of overlap, never spans a heading, and splits by paragraph,
+  then sentence, then word - never mid-word.
+- **Embeddings** default to a local model (`bge-small-en-v1.5` via
+  transformers.js, `EMBEDDINGS_MODE=local`), so everything works with no API
+  key; `EMBEDDINGS_MODE=voyage` uses Voyage AI. A KB records the model it was
+  built with and refuses queries from a different one.
+- **Search modes**: `vector` (HNSW, cosine), `keyword` (Postgres full-text,
+  GIN), and `hybrid` - both, merged with **Reciprocal Rank Fusion**
+  (`score = Σ 1/(60 + rank)`, `packages/core/src/rrf.ts`). Ranks are fused
+  rather than raw scores because cosine similarity and `ts_rank` live on
+  unrelated scales.
+- **Grounding**: with citations required, the answer gets `grounded: false` if it
+  cites nothing or cites a chunk it wasn't given, so a `branch` or `approval`
+  node can stop an unsupported answer before it's posted.
+- The compiler sees the list of KBs, so "answer HR questions in Slack from our
+  policy docs" compiles to `trigger → retrieve → llm → slack_post`. A sample KB
+  (a fictional employee handbook, `apps/api/seed-kb/`) and an "Answer HR
+  questions from the handbook" template are seeded on boot.
+
+**Retrieval eval** (`npm run eval:retrieval`; full table in
+[`apps/api/eval/results.md`](apps/api/eval/results.md)): 30 questions over the
+sample KB, each labelled with the document and an exact evidence phrase.
+
+| search mode (heading-aware chunks) | recall@1 | recall@5 | MRR@10 |
+|---|---:|---:|---:|
+| keyword | 83.3% | 96.7% | 0.876 |
+| vector | 90.0% | 100.0% | 0.944 |
+| **hybrid (RRF)** | **96.7%** | **100.0%** | **0.983** |
+
+Hybrid puts the right chunk first for 29 of 30 questions, against 27 for vector
+alone and 25 for keyword alone. Chunk size made no difference with heading-aware
+chunking, because every handbook section is under 300 tokens. With headings
+ignored ("flat" chunking), hybrid's MRR drops to 0.950 at every size, and vector
+alone falls to 73.3% recall@1 at 500 tokens - splitting on headings is worth
+more here than any size setting. The corpus is small (36 chunks), so treat these
+as a regression check rather than a benchmark.
+
 ## Status
 
 **All four blueprint core phases and all ten Expansion features are implemented**
-(#1–#10), plus a loop/iterator node.
+(#1–#10), plus a loop/iterator node and knowledge bases (RAG).

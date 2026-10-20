@@ -1,0 +1,40 @@
+{
+  "description": "Retrieval eval over the sample knowledge base (apps/api/seed-kb). Each question is labelled with the document that answers it and an evidence phrase copied verbatim from that document. A retrieved chunk is relevant when it comes from that document and contains the evidence (whitespace-normalised), so labels stay valid across chunk sizes. Questions deliberately mix paraphrases (favour vector search) with exact terms and numbers (favour keyword search).",
+  "status": "draft - review and rewrite before quoting the numbers",
+  "questions": [
+    { "id": "q01", "question": "How many vacation days do full-time staff get each year?", "document": "time-off.md", "evidence": "accrue 22 days of paid vacation per calendar year" },
+    { "id": "q02", "question": "What happens to vacation days I carried over if I haven't used them by spring?", "document": "time-off.md", "evidence": "Carried-over days must be used by March 31" },
+    { "id": "q03", "question": "How far ahead do I have to ask for a week off?", "document": "time-off.md", "evidence": "approval at least 2 weeks in advance" },
+    { "id": "q04", "question": "If a public holiday lands on a Saturday, do I get another day off?", "document": "time-off.md", "evidence": "the next working day is a day off instead" },
+    { "id": "q05", "question": "When do I need a doctor's note for being sick?", "document": "time-off.md", "evidence": "more than 3 consecutive working days requires a doctor's note" },
+    { "id": "q06", "question": "How long is paid leave for the primary caregiver after a baby is born?", "document": "time-off.md", "evidence": "18 weeks of fully paid parental leave" },
+    { "id": "q07", "question": "Can I take time off to look after my sick kid?", "document": "time-off.md", "evidence": "care for a sick child or dependant" },
+    { "id": "q08", "question": "After how many years can I take a sabbatical?", "document": "time-off.md", "evidence": "after 5 years of employment, a one-time 4-week paid sabbatical" },
+
+    { "id": "q09", "question": "What's the deadline for submitting an expense claim?", "document": "expenses-and-travel.md", "evidence": "within 30 days of the purchase" },
+    { "id": "q10", "question": "Is there a spending limit on a client dinner?", "document": "expenses-and-travel.md", "evidence": "Client meals are reimbursed up to 60 euros per person" },
+    { "id": "q11", "question": "Can I fly business class to a conference?", "document": "expenses-and-travel.md", "evidence": "Business class is only allowed for flights over 10 hours" },
+    { "id": "q12", "question": "What's the nightly hotel budget in Zurich?", "document": "expenses-and-travel.md", "evidence": "280 euros per night in London, New York, Tokyo, San Francisco and Zurich" },
+    { "id": "q13", "question": "How much do I get for meals per day on an overnight trip?", "document": "expenses-and-travel.md", "evidence": "per diem of 45 euros per day" },
+    { "id": "q14", "question": "What rate is mileage paid at when I drive my own car for work?", "document": "expenses-and-travel.md", "evidence": "0.30 euros per kilometre" },
+    { "id": "q15", "question": "Will the company pay my parking ticket?", "document": "expenses-and-travel.md", "evidence": "traffic or parking fines" },
+    { "id": "q16", "question": "What do I have to do before a trip to a high-risk country?", "document": "expenses-and-travel.md", "evidence": "complete the travel-safety briefing" },
+
+    { "id": "q17", "question": "How many days a week can I work from home?", "document": "remote-work.md", "evidence": "work remotely up to 3 days per week" },
+    { "id": "q18", "question": "What are the core collaboration hours?", "document": "remote-work.md", "evidence": "10:00 to 15:00" },
+    { "id": "q19", "question": "Can I work from Spain for a month while visiting family?", "document": "remote-work.md", "evidence": "up to 30 days in any 12-month period" },
+    { "id": "q20", "question": "How much money do I get to set up my home office?", "document": "remote-work.md", "evidence": "home-office stipend of 500 euros" },
+    { "id": "q21", "question": "Can I expense a desk at a coworking space?", "document": "remote-work.md", "evidence": "expense up to 250 euros per month" },
+    { "id": "q22", "question": "When can a hybrid employee switch to fully remote?", "document": "remote-work.md", "evidence": "after 12 months in their role" },
+
+    { "id": "q23", "question": "What's the minimum password length?", "document": "it-and-security.md", "evidence": "at least 14 characters long" },
+    { "id": "q24", "question": "Can I use text message codes for two-factor login?", "document": "it-and-security.md", "evidence": "SMS codes are not accepted" },
+    { "id": "q25", "question": "My laptop was stolen - how quickly do I have to report it?", "document": "it-and-security.md", "evidence": "reported within 1 hour of noticing" },
+    { "id": "q26", "question": "Am I allowed to paste customer data into an AI chatbot?", "document": "it-and-security.md", "evidence": "Do not paste Confidential or Restricted data into AI tools" },
+
+    { "id": "q27", "question": "When is payday?", "document": "benefits-and-pay.md", "evidence": "Salaries are paid monthly, on the 25th" },
+    { "id": "q28", "question": "How much does the company put into my pension?", "document": "benefits-and-pay.md", "evidence": "contributes 6% of your base salary" },
+    { "id": "q29", "question": "What's my yearly training budget?", "document": "benefits-and-pay.md", "evidence": "learning budget of 1,200 euros per calendar year" },
+    { "id": "q30", "question": "What do I get for referring a friend who gets hired?", "document": "benefits-and-pay.md", "evidence": "referral bonus of 2,000 euros" }
+  ]
+}

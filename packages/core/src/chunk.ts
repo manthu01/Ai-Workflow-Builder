@@ -31,6 +31,12 @@ export interface ChunkSourcePage {
 export interface ChunkOptions {
   targetTokens?: number;
   overlapTokens?: number;
+  /**
+   * false packs across headings (they become ordinary paragraphs and no
+   * heading metadata is kept). Only for the retrieval eval's ablation; the app
+   * always splits on headings.
+   */
+  splitOnHeadings?: boolean;
 }
 
 export interface ChunkMetadata {
@@ -76,7 +82,12 @@ export function chunkDocument(pages: ChunkSourcePage[], opts: ChunkOptions = {})
   const overlapChars = (opts.overlapTokens ?? DEFAULT_OVERLAP_TOKENS) * CHARS_PER_TOKEN;
 
   const chunks: Chunk[] = [];
-  for (const section of splitSections(pages)) {
+  const sections = splitSections(pages);
+  const packed =
+    opts.splitOnHeadings === false
+      ? [{ paragraphs: sections.flatMap((s) => s.paragraphs) }]
+      : sections;
+  for (const section of packed as Section[]) {
     const units = section.paragraphs.flatMap((p) => toUnits(p, targetChars));
     for (const { content, page } of pack(units, targetChars, overlapChars)) {
       chunks.push({

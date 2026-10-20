@@ -63,6 +63,14 @@ test("headings are hard boundaries and become chunk metadata", () => {
   );
 });
 
+test("splitOnHeadings: false packs across sections and drops heading metadata", () => {
+  const text = "# Leave\nTwenty days per year.\n\n# Expenses\nSubmit receipts within 30 days.";
+  const chunks = chunkDocument([{ text }], { splitOnHeadings: false });
+  assert.equal(chunks.length, 1);
+  assert.equal(chunks[0]!.content, "# Leave\n\nTwenty days per year.\n\n# Expenses\n\nSubmit receipts within 30 days.");
+  assert.deepEqual(chunks[0]!.metadata, {});
+});
+
 test("a heading with no body of its own is folded into the next section", () => {
   const text = "# Leave Policy\n\n## Vacation\nTwenty days per year.\n\n# Expenses\n## Travel\nFly economy.";
   const chunks = chunkDocument([{ text }]);

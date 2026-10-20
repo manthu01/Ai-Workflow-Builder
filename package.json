@@ -24,7 +24,8 @@
     "infra:up": "docker compose up -d",
     "infra:down": "docker compose down",
     "db:push": "npm run db:push -w @awb/api",
-    "db:studio": "npm run db:studio -w @awb/api"
+    "db:studio": "npm run db:studio -w @awb/api",
+    "eval:retrieval": "npm run eval:retrieval -w @awb/api"
   },
   "devDependencies": {
     "concurrently": "^9.1.2",

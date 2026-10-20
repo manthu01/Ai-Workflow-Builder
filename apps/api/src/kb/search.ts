@@ -86,7 +86,7 @@ async function vectorSearch(
     await tx.execute(sql`SET LOCAL hnsw.iterative_scan = relaxed_order`);
     const res = await tx.execute<ChunkRow>(sql`
       SELECT * FROM (
-        SELECT c.id, c.content, c.metadata, c.document_id, d.filename,
+        SELECT c.id, c.content, c.metadata, c.document_id, c.chunk_index, d.filename,
                1 - (c.embedding <=> ${q}::vector) AS score
         FROM kb_chunks c
         JOIN kb_documents d ON d.id = c.document_id
@@ -94,7 +94,7 @@ async function vectorSearch(
         ORDER BY c.embedding <=> ${q}::vector
         LIMIT ${p.topK * 2}
       ) nearest
-      ORDER BY score DESC`);
+      ORDER BY score DESC, filename, chunk_index`);
     return res.rows;
   });
 }
@@ -113,7 +113,9 @@ async function keywordSearch(p: SearchParams): Promise<ChunkRow[]> {
     JOIN kb_documents d ON d.id = c.document_id,
          to_tsquery('english', replace(plainto_tsquery('english', ${p.query})::text, '&', '|')) AS q(query)
     WHERE c.kb_id = ${p.kbId} AND c.content_tsv @@ q.query
-    ORDER BY score DESC
+    -- ts_rank ties are common (same terms, similar length); break them by
+    -- position so rankings, and eval numbers, are reproducible run to run.
+    ORDER BY score DESC, d.filename, c.chunk_index
     LIMIT ${p.topK * 2}`);
   return res.rows;
 }
