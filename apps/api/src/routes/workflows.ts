@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import {
   WorkflowGraphSchema,
@@ -10,6 +10,15 @@ import { db, schema } from "../db/client.js";
 import { newId } from "../id.js";
 import { compileWorkflow, CompileError } from "../compiler/compile.js";
 import { snapshotVersion } from "../versions.js";
+import { env } from "../env.js";
+import {
+  demoForbidden,
+  demoGraphGuard,
+  demoHasModel,
+  findWorkflow,
+  ownerFilter,
+  takeCompileBudget,
+} from "../demo.js";
 
 export const workflowRoutes = new Hono();
 
@@ -20,9 +29,19 @@ workflowRoutes.post("/compile", async (c) => {
   if (!parsed.success) {
     return c.json({ error: "prompt is required" }, 400);
   }
+  if (env.DEMO_MODE && parsed.data.prompt.length > env.DEMO_PROMPT_MAX_CHARS) {
+    return c.json({ error: `Demo prompts are limited to ${env.DEMO_PROMPT_MAX_CHARS} characters.` }, 400);
+  }
+  const budget = takeCompileBudget(c);
+  if (!budget.ok) {
+    c.header("retry-after", String(budget.retryAfter));
+    return c.json({ error: budget.error, demo: true }, 429);
+  }
 
   try {
-    const result = await compileWorkflow(parsed.data.prompt);
+    const result = await compileWorkflow(parsed.data.prompt, { stub: budget.useStub });
+    const blocked = demoGraphGuard(c, result.graph);
+    if (blocked) return blocked;
     const id = newId("wf");
     const [row] = await db
       .insert(schema.workflows)
@@ -32,6 +51,7 @@ workflowRoutes.post("/compile", async (c) => {
         description: result.graph.description ?? null,
         graph: result.graph,
         sourcePrompt: parsed.data.prompt,
+        ownerSid: c.get("sid"),
       })
       .returning();
 
@@ -43,6 +63,8 @@ workflowRoutes.post("/compile", async (c) => {
       attempts: result.attempts,
       warnings: result.warnings,
       routing: result.routing,
+      // Demo mode past the global daily cap: compiled offline instead of by the model.
+      offlineFallback: budget.useStub,
     });
   } catch (err) {
     if (err instanceof CompileError) {
@@ -57,15 +79,13 @@ workflowRoutes.get("/", async (c) => {
   const rows = await db
     .select()
     .from(schema.workflows)
+    .where(ownerFilter(c))
     .orderBy(desc(schema.workflows.updatedAt));
   return c.json({ workflows: rows });
 });
 
 workflowRoutes.get("/:id", async (c) => {
-  const [row] = await db
-    .select()
-    .from(schema.workflows)
-    .where(eq(schema.workflows.id, c.req.param("id")));
+  const row = await findWorkflow(c, c.req.param("id"));
   if (!row) return c.json({ error: "not found" }, 404);
   return c.json({ workflow: row, issues: validateGraph(row.graph) });
 });
@@ -84,11 +104,15 @@ workflowRoutes.put("/:id", async (c) => {
     return c.json({ error: "invalid body", details: parsed.error.issues }, 400);
   }
 
-  const [existing] = await db
-    .select()
-    .from(schema.workflows)
-    .where(eq(schema.workflows.id, id));
+  const existing = await findWorkflow(c, id);
   if (!existing) return c.json({ error: "not found" }, 404);
+  if (parsed.data.graph) {
+    const blocked = demoGraphGuard(c, parsed.data.graph);
+    if (blocked) return blocked;
+  }
+  if (env.DEMO_MODE && parsed.data.selfHeal && !demoHasModel()) {
+    return demoForbidden(c, "Self-heal (it needs a model, and this demo runs offline)");
+  }
 
   // Positions are preserved as sent - the canvas owns layout while editing.
   const graph = parsed.data.graph ?? existing.graph;
@@ -114,13 +138,12 @@ workflowRoutes.post("/:id/relayout", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const parsed = z.object({ graph: WorkflowGraphSchema }).safeParse(body);
 
-  const [existing] = await db
-    .select()
-    .from(schema.workflows)
-    .where(eq(schema.workflows.id, id));
+  const existing = await findWorkflow(c, id);
   if (!existing) return c.json({ error: "not found" }, 404);
 
   const graph = autoLayoutSafe(parsed.success ? parsed.data.graph : existing.graph);
+  const blocked = demoGraphGuard(c, graph);
+  if (blocked) return blocked;
   const [row] = await db
     .update(schema.workflows)
     .set({ graph, updatedAt: new Date() })
@@ -131,6 +154,8 @@ workflowRoutes.post("/:id/relayout", async (c) => {
 });
 
 workflowRoutes.delete("/:id", async (c) => {
-  await db.delete(schema.workflows).where(eq(schema.workflows.id, c.req.param("id")));
+  await db
+    .delete(schema.workflows)
+    .where(and(eq(schema.workflows.id, c.req.param("id")), ownerFilter(c)));
   return c.body(null, 204);
 });

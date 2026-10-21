@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { WorkflowGraph } from "./graph.js";
+import type { ModelTier } from "./nodes.js";
 
 export const RunMode = z.enum(["dry", "live"]);
 export type RunMode = z.infer<typeof RunMode>;
@@ -37,6 +38,8 @@ export interface WorkflowExecutionInput {
   triggerPayload?: unknown;
   /** When true, a failed node's config is sent to the model for a repair + one retry. */
   selfHeal?: boolean;
+  /** Forces every llm node onto this tier, ignoring its own tier and model (demo live-LLM runs). */
+  llmTier?: ModelTier;
 }
 
 export const NodeRunStatus = z.enum([

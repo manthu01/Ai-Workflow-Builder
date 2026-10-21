@@ -526,3 +526,19 @@ textarea {
 .cited-answer { font-size: 12px; line-height: 1.5; white-space: pre-wrap; }
 mark.cite { background: transparent; color: var(--ok); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
 mark.cite.invalid { color: var(--fail); text-decoration: line-through; }
+
+/* Public demo mode */
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  padding: 6px 16px;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+}
+.demo-banner a { color: var(--accent); }
+.demo-banner-detail { color: var(--muted); }
+.demo-off { opacity: 0.45; cursor: not-allowed; }
+.demo-note { font-size: 12px; color: var(--muted); padding: 8px 0; }

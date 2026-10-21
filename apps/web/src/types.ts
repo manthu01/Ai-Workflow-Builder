@@ -257,3 +257,21 @@ export interface RunResult {
   startedAt: string;
   finishedAt?: string;
 }
+
+/** GET /api/demo: whether this is the public demo, and what it allows. */
+export type DemoStatus =
+  | { demo: false }
+  | {
+      demo: true;
+      repoUrl: string;
+      /** "stub" = the offline rule-based compiler, not an AI model. */
+      compiler: "claude" | "stub";
+      compilesLeftThisHour: number;
+      compilesPerHour: number;
+      promptMaxChars: number;
+      selfHealAvailable: boolean;
+      liveLlmAvailable: boolean;
+      retentionHours: number;
+      blockedKinds: string[];
+      disabled: string[];
+    };

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
-import { eq, desc, inArray } from "drizzle-orm";
+import { and, eq, desc, inArray } from "drizzle-orm";
 import { db, schema } from "../db/client.js";
+import { ownerFilter } from "../demo.js";
 
 export const analyticsRoutes = new Hono();
 
@@ -31,7 +32,8 @@ analyticsRoutes.get("/analytics", async (c) => {
     })
     .from(schema.runs)
     .leftJoin(schema.workflows, eq(schema.workflows.id, schema.runs.workflowId))
-    .where(wf ? eq(schema.runs.workflowId, wf) : undefined)
+    // In demo mode the join also limits runs to the visitor's own workflows.
+    .where(and(wf ? eq(schema.runs.workflowId, wf) : undefined, ownerFilter(c)))
     .orderBy(desc(schema.runs.startedAt))
     .limit(2000);
 

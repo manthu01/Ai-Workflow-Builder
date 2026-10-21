@@ -314,6 +314,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
             node: n,
             mode,
             dryRunLlm: input.dryRunLlm,
+            llmTier: input.llmTier,
             outputs,
             triggerPayload: input.triggerPayload,
           });
@@ -352,6 +353,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Ru
                   node: patched,
                   mode,
                   dryRunLlm: input.dryRunLlm,
+                  llmTier: input.llmTier,
                   outputs,
                   triggerPayload: input.triggerPayload,
                 });

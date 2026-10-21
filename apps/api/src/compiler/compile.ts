@@ -78,6 +78,7 @@ export class CompileError extends Error {
 }
 
 let cached: WorkflowCompilerProvider | undefined;
+const stubProvider = new StubCompilerProvider();
 
 export function getCompilerProvider(): WorkflowCompilerProvider {
   if (cached) return cached;
@@ -134,6 +135,8 @@ export interface CompileOptions {
   tier?: ModelTier;
   /** Skip the router and use this exact model (wins over `tier` and COMPILER_MODEL). */
   model?: string;
+  /** Use the offline stub whatever COMPILER_MODE says (demo mode past its daily cap). */
+  stub?: boolean;
 }
 
 /**
@@ -145,7 +148,7 @@ export async function compileWorkflow(
   request: string,
   opts: CompileOptions = {},
 ): Promise<CompileResult> {
-  const provider = getCompilerProvider();
+  const provider = opts.stub ? stubProvider : getCompilerProvider();
   const routed = routeCompilerTier(request);
   const route = opts.tier
     ? { tier: opts.tier, reasons: [`forced ${opts.tier} tier`] }

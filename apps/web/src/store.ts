@@ -4,6 +4,7 @@ import type {
   ApiBlueprint,
   KnowledgeBase,
   Connection,
+  DemoStatus,
   ConnectionKind,
   Deployment,
   GraphIssue,
@@ -55,6 +56,9 @@ interface AppState {
   publishTemplate: (description: string, category: string) => Promise<void>;
   useTemplate: (id: string) => Promise<void>;
   removeTemplate: (id: string) => Promise<void>;
+  /** Public demo status (null until loaded). */
+  demo: DemoStatus | null;
+  loadDemo: () => Promise<void>;
   compiling: boolean;
   running: boolean;
   saving: boolean;
@@ -62,7 +66,7 @@ interface AppState {
 
   loadCatalog: () => Promise<void>;
   compile: (prompt: string) => Promise<void>;
-  doRun: (mode: "dry" | "live") => Promise<void>;
+  doRun: (mode: "dry" | "live", opts?: { liveLlm?: boolean }) => Promise<void>;
   selectNode: (id: string | null) => void;
 
   approve: (nodeId: string, decision: "approve" | "reject", note?: string) => Promise<void>;
@@ -143,7 +147,7 @@ export const useApp = create<AppState>((set, get) => {
           ],
         }));
         activeStream = null;
-        void get().loadDeployments();
+        if (!get().demo?.demo) void get().loadDeployments();
       },
       onError: (msg) => set({ running: false, error: msg }),
     });
@@ -289,6 +293,15 @@ export const useApp = create<AppState>((set, get) => {
     running: false,
     saving: false,
     error: null,
+    demo: null,
+
+    loadDemo: async () => {
+      try {
+        set({ demo: await api.demo() });
+      } catch {
+        set({ demo: { demo: false } });
+      }
+    },
 
     loadCatalog: async () => {
       try {
@@ -318,7 +331,11 @@ export const useApp = create<AppState>((set, get) => {
         const routed =
           res.provider === "anthropic"
             ? ` Routed to ${res.routing.tier} tier (${res.routing.model}) - ${res.routing.reasons.join(", ")}.`
-            : "";
+            : res.offlineFallback
+              ? " The demo's daily AI compile budget is used up, so this was compiled offline by keyword rules."
+              : res.provider === "stub"
+                ? " (Offline rule-based compiler, not an AI model.)"
+                : "";
         set((s) => ({
           workflow: res.workflow,
           issues: res.warnings,
@@ -331,6 +348,7 @@ export const useApp = create<AppState>((set, get) => {
             },
           ],
         }));
+        if (get().demo?.demo) void get().loadDemo();
       } catch (err) {
         const e = err as Error & { issues?: GraphIssue[] };
         set((s) => ({
@@ -342,7 +360,7 @@ export const useApp = create<AppState>((set, get) => {
       }
     },
 
-    doRun: async (mode) => {
+    doRun: async (mode, opts) => {
       const wf = get().workflow;
       if (!wf) return;
       if (persistTimer) {
@@ -351,8 +369,16 @@ export const useApp = create<AppState>((set, get) => {
       }
       set({ running: true, error: null, run: null });
       try {
-        const { runId } = await api.run(wf.id, mode);
-        streamInto(runId, { workflowId: wf.id, mode }, mode === "dry" ? "Dry run" : "Live run");
+        const { runId, liveLlm, notices } = await api.run(wf.id, mode, opts?.liveLlm);
+        if (notices?.length) {
+          set((s) => ({ chat: [...s.chat, ...notices.map((text) => ({ role: "system" as const, text }))] }));
+        }
+        if (get().demo?.demo) void get().loadDemo();
+        streamInto(
+          runId,
+          { workflowId: wf.id, mode },
+          mode === "live" ? "Live run" : liveLlm ? "Dry run (live LLM)" : "Dry run",
+        );
       } catch (err) {
         const e = err as Error;
         set((s) => ({

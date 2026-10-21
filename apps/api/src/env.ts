@@ -35,6 +35,24 @@ const EnvSchema = z.object({
   LOCAL_RUNNER_TOKEN: z.string().default("dev-local-runner-token"),
   /** Public base URL for webhook listener URLs shown in the UI. */
   PUBLIC_URL: z.string().default("http://localhost:8787"),
+
+  /**
+   * Public demo mode: per-visitor isolation (awb_sid cookie), dry runs only,
+   * dangerous features off, compile rate limits, nightly cleanup. See demo.ts.
+   */
+  DEMO_MODE: z
+    .enum(["true", "false", "1", "0", ""])
+    .default("false")
+    .transform((v) => v === "true" || v === "1"),
+  /** Compiles per visitor (cookie) and per IP, per rolling hour. */
+  DEMO_COMPILES_PER_HOUR: z.coerce.number().int().positive().default(5),
+  /** Compiles across all visitors per UTC day; past it the compiler falls back to the stub. */
+  DEMO_COMPILES_PER_DAY: z.coerce.number().int().positive().default(200),
+  DEMO_PROMPT_MAX_CHARS: z.coerce.number().int().positive().default(1000),
+  /** Visitor-owned workflows older than this are deleted by the cleanup job. */
+  DEMO_RETENTION_HOURS: z.coerce.number().positive().default(24),
+  /** Linked from the demo banner. */
+  DEMO_REPO_URL: z.string().default("https://github.com/manthu01/Ai-Workflow-Builder"),
 });
 
 export const env = EnvSchema.parse(process.env);

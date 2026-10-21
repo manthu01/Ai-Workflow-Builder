@@ -9,6 +9,7 @@ import { BlueprintsModal } from "./components/BlueprintsModal";
 import { KnowledgeBasesModal } from "./components/KnowledgeBasesModal";
 import { AnalyticsView } from "./components/AnalyticsView";
 import { TemplatesView } from "./components/TemplatesView";
+import { DemoBanner } from "./components/DemoBanner";
 
 export function App() {
   const workflow = useApp((s) => s.workflow);
@@ -19,13 +20,16 @@ export function App() {
   const loadConnections = useApp((s) => s.loadConnections);
   const loadBlueprints = useApp((s) => s.loadBlueprints);
   const loadKnowledgeBases = useApp((s) => s.loadKnowledgeBases);
+  const loadDemo = useApp((s) => s.loadDemo);
+  const demo = useApp((s) => s.demo);
 
   useEffect(() => {
+    void loadDemo();
     void loadCatalog();
     void loadConnections();
     void loadBlueprints();
     void loadKnowledgeBases();
-  }, [loadCatalog, loadConnections, loadBlueprints, loadKnowledgeBases]);
+  }, [loadDemo, loadCatalog, loadConnections, loadBlueprints, loadKnowledgeBases]);
 
   return (
     <div className="app">
@@ -52,6 +56,7 @@ export function App() {
           </span>
         )}
       </div>
+      {demo?.demo && <DemoBanner demo={demo} />}
       {error && <div className="error-bar">{error}</div>}
       {view === "analytics" ? (
         <AnalyticsView />

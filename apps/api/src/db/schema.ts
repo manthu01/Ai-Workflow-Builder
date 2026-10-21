@@ -26,19 +26,28 @@ const tsvector = customType<{ data: string }>({ dataType: () => "tsvector" });
 
 const bytea = customType<{ data: Buffer }>({ dataType: () => "bytea" });
 
-export const workflows = pgTable("workflows", {
-  id: text("id").primaryKey(),
-  name: text("name").notNull(),
-  description: text("description"),
-  /** The full node graph. Source of truth for the canvas and the engine. */
-  graph: jsonb("graph").$type<WorkflowGraph>().notNull(),
-  /** The natural-language prompt this workflow was compiled from, if any. */
-  sourcePrompt: text("source_prompt"),
-  /** Expansion #2: let the engine repair a failed node's config and retry once. */
-  selfHeal: boolean("self_heal").notNull().default(false),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+export const workflows = pgTable(
+  "workflows",
+  {
+    id: text("id").primaryKey(),
+    name: text("name").notNull(),
+    description: text("description"),
+    /** The full node graph. Source of truth for the canvas and the engine. */
+    graph: jsonb("graph").$type<WorkflowGraph>().notNull(),
+    /** The natural-language prompt this workflow was compiled from, if any. */
+    sourcePrompt: text("source_prompt"),
+    /** Expansion #2: let the engine repair a failed node's config and retry once. */
+    selfHeal: boolean("self_heal").notNull().default(false),
+    /**
+     * Public demo mode: the anonymous visitor (awb_sid cookie) who owns this
+     * workflow. Null outside demo mode, and for rows created before it.
+     */
+    ownerSid: text("owner_sid"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("workflows_owner_idx").on(t.ownerSid)],
+);
 
 /**
  * Immutable snapshots of a workflow's graph (Expansion #5). One is written on

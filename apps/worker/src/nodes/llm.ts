@@ -67,7 +67,9 @@ export const runLlm: NodeExecutor = async (node, ctx) => {
   const grounded = (result: NodeExecResult, raw: string) =>
     withGrounding(result, raw, prompt, config.requireCitations);
 
-  const routedModel = resolveModel(config.tier, config.model, tierModels);
+  const routedModel = ctx.llmTier
+    ? tierModels[ctx.llmTier]
+    : resolveModel(config.tier, config.model, tierModels);
   const live = ctx.mode === "live" || ctx.dryRunLlm === "live";
   if (!live) {
     const mock = mockAnswer(prompt, config.output, config.requireCitations);

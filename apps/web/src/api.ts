@@ -7,6 +7,7 @@ import type {
   RetrievedChunk,
   Connection,
   ConnectionKind,
+  DemoStatus,
   Deployment,
   GraphIssue,
   NodeCatalogEntry,
@@ -52,9 +53,13 @@ export interface CompileResponse {
   attempts: number;
   warnings: GraphIssue[];
   routing: { tier: string; model: string; reasons: string[] };
+  /** Demo mode past its daily cap: compiled by the offline stub instead. */
+  offlineFallback?: boolean;
 }
 
 export const api = {
+  demo: () => request<DemoStatus>("/api/demo"),
+
   nodeCatalog: () => request<{ nodes: NodeCatalogEntry[] }>("/api/node-catalog"),
 
   analytics: (workflowId?: string) =>
@@ -92,11 +97,11 @@ export const api = {
       { method: "POST", body: JSON.stringify({ graph }) },
     ),
 
-  run: (id: string, mode: "dry" | "live") =>
-    request<{ runId: string; mode: "dry" | "live" }>(`/api/workflows/${id}/runs`, {
-      method: "POST",
-      body: JSON.stringify({ mode }),
-    }),
+  run: (id: string, mode: "dry" | "live", liveLlm = false) =>
+    request<{ runId: string; mode: "dry" | "live"; liveLlm?: boolean; notices?: string[] }>(
+      `/api/workflows/${id}/runs`,
+      { method: "POST", body: JSON.stringify({ mode, liveLlm }) },
+    ),
 
   /**
    * Streams live progress for a run. Calls `onProgress` for each snapshot and

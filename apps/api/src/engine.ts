@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import {
   WorkflowExecuteWorkflowType,
+  type ModelTier,
   type RunResult,
   type WorkflowGraph,
 } from "@awb/core";
@@ -19,6 +20,10 @@ export interface StartRunOptions {
   scheduleId?: string;
   triggerPayload?: unknown;
   selfHeal?: boolean;
+  /** Overrides DRY_RUN_LLM for this run (the demo's hourly live-LLM run). */
+  dryRunLlm?: "mock" | "live";
+  /** Forces every llm node onto one tier. */
+  llmTier?: ModelTier;
 }
 
 export interface StartedRun {
@@ -56,9 +61,10 @@ export async function startRun(opts: StartRunOptions): Promise<StartedRun> {
     workflowId: opts.workflowId,
     mode: opts.mode,
     graph: opts.graph,
-    dryRunLlm: env.DRY_RUN_LLM,
+    dryRunLlm: opts.dryRunLlm ?? env.DRY_RUN_LLM,
     triggerPayload: opts.triggerPayload,
     selfHeal: opts.selfHeal ?? false,
+    llmTier: opts.llmTier,
   };
 
   const client = await getTemporalClient();

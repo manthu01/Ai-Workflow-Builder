@@ -9,6 +9,7 @@ export interface EnqueueLocalTaskParams {
 
 /** Activity: register a local task so the user's runner can pick it up. */
 export async function enqueueLocalTask(params: EnqueueLocalTaskParams): Promise<void> {
+  if (env.DEMO_MODE) throw new Error("local nodes are disabled in the public demo");
   const res = await fetch(`${env.AWB_API_URL}/api/local-tasks/internal`, {
     method: "POST",
     headers: {

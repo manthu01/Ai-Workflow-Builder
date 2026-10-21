@@ -5,6 +5,7 @@ import { WorkflowGraphSchema, autoLayoutSafe } from "./_shared.js";
 import { db, schema } from "../db/client.js";
 import { newId } from "../id.js";
 import { snapshotVersion } from "../versions.js";
+import { demoGraphGuard, findWorkflow } from "../demo.js";
 
 export const templateRoutes = new Hono();
 
@@ -51,10 +52,7 @@ templateRoutes.post("/", async (c) => {
   const parsed = PublishBody.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "workflowId is required" }, 400);
 
-  const [wf] = await db
-    .select()
-    .from(schema.workflows)
-    .where(eq(schema.workflows.id, parsed.data.workflowId));
+  const wf = await findWorkflow(c, parsed.data.workflowId);
   if (!wf) return c.json({ error: "workflow not found" }, 404);
 
   const [row] = await db
@@ -80,6 +78,8 @@ templateRoutes.post("/:id/clone", async (c) => {
 
   const id = newId("wf");
   const graph = autoLayoutSafe(WorkflowGraphSchema.parse(tpl.graph));
+  const blocked = demoGraphGuard(c, graph);
+  if (blocked) return blocked;
   const [wf] = await db
     .insert(schema.workflows)
     .values({
@@ -87,6 +87,7 @@ templateRoutes.post("/:id/clone", async (c) => {
       name: `${tpl.name} (copy)`,
       description: tpl.description,
       graph,
+      ownerSid: c.get("sid"),
     })
     .returning();
 

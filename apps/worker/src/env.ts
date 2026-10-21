@@ -19,6 +19,11 @@ const EnvSchema = z.object({
   /** API base URL used to resolve connection secrets at execution time. */
   AWB_API_URL: z.string().default("http://localhost:8787"),
   INTERNAL_TOKEN: z.string().default("dev-internal-token"),
+  /** Public demo: refuse live runs, code nodes and local tasks even if the API let one through. */
+  DEMO_MODE: z
+    .enum(["true", "false", "1", "0", ""])
+    .default("false")
+    .transform((v) => v === "true" || v === "1"),
 });
 
 export const env = EnvSchema.parse(process.env);

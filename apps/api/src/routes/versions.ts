@@ -4,6 +4,7 @@ import { z } from "zod";
 import { validateGraph } from "@awb/core";
 import { db, schema } from "../db/client.js";
 import { snapshotVersion } from "../versions.js";
+import { findWorkflow } from "../demo.js";
 
 export const versionRoutes = new Hono();
 
@@ -18,6 +19,7 @@ const summary = (r: typeof schema.workflowVersions.$inferSelect) => ({
 });
 
 versionRoutes.get("/workflows/:id/versions", async (c) => {
+  if (!(await findWorkflow(c, c.req.param("id")))) return c.json({ error: "not found" }, 404);
   const rows = await db
     .select()
     .from(schema.workflowVersions)
@@ -27,6 +29,7 @@ versionRoutes.get("/workflows/:id/versions", async (c) => {
 });
 
 versionRoutes.get("/workflows/:id/versions/:versionId", async (c) => {
+  if (!(await findWorkflow(c, c.req.param("id")))) return c.json({ error: "not found" }, 404);
   const [row] = await db
     .select()
     .from(schema.workflowVersions)
@@ -43,10 +46,7 @@ versionRoutes.post("/workflows/:id/versions", async (c) => {
   const body = await c.req.json().catch(() => ({}));
   const label = z.object({ label: z.string().max(120).optional() }).parse(body).label;
 
-  const [wf] = await db
-    .select()
-    .from(schema.workflows)
-    .where(eq(schema.workflows.id, id));
+  const wf = await findWorkflow(c, id);
   if (!wf) return c.json({ error: "workflow not found" }, 404);
 
   const row = await snapshotVersion(id, wf.graph, "edit", label ?? "manual save");
@@ -61,10 +61,7 @@ versionRoutes.post("/workflows/:id/rollback", async (c) => {
   const parsed = RollbackBody.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "versionId is required" }, 400);
 
-  const [wf] = await db
-    .select()
-    .from(schema.workflows)
-    .where(eq(schema.workflows.id, id));
+  const wf = await findWorkflow(c, id);
   if (!wf) return c.json({ error: "workflow not found" }, 404);
 
   const [target] = await db

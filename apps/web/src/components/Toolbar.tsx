@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useApp } from "../store";
 import type { NodeKind } from "../types";
 
+const DEMO_OFF = "Disabled in the public demo";
+
 export function Toolbar() {
   const workflow = useApp((s) => s.workflow);
   const catalog = useApp((s) => s.catalog);
@@ -16,6 +18,8 @@ export function Toolbar() {
   const setKnowledgeBasesOpen = useApp((s) => s.setKnowledgeBasesOpen);
   const toggleSelfHeal = useApp((s) => s.toggleSelfHeal);
   const publishTemplate = useApp((s) => s.publishTemplate);
+  const demoStatus = useApp((s) => s.demo);
+  const demo = demoStatus?.demo ? demoStatus : null;
   const [menuOpen, setMenuOpen] = useState(false);
   const [published, setPublished] = useState(false);
 
@@ -30,31 +34,40 @@ export function Toolbar() {
         </button>
         {menuOpen && !disabled && (
           <div className="menu">
-            {catalog.map((c) => (
-              <button
-                key={c.kind}
-                className="menu-item"
-                onClick={() => {
-                  addNode(c.kind as NodeKind);
-                  setMenuOpen(false);
-                }}
-              >
-                <strong>{c.title}</strong>
-                <span>{c.description}</span>
-              </button>
-            ))}
+            {catalog.map((c) => {
+              const off = demo?.blockedKinds.includes(c.kind) ?? false;
+              return (
+                <button
+                  key={c.kind}
+                  className={off ? "menu-item demo-off" : "menu-item"}
+                  disabled={off}
+                  title={off ? DEMO_OFF : undefined}
+                  onClick={() => {
+                    addNode(c.kind as NodeKind);
+                    setMenuOpen(false);
+                  }}
+                >
+                  <strong>{c.title}</strong>
+                  <span>{off ? DEMO_OFF : c.description}</span>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
       <button disabled={disabled} onClick={() => void relayout()}>
         Auto-layout
       </button>
-      <button onClick={() => setConnectionsOpen(true)}>Connections</button>
-      <button onClick={() => setBlueprintsOpen(true)}>API blueprints</button>
+      <button disabled={!!demo} title={demo ? DEMO_OFF : undefined} onClick={() => setConnectionsOpen(true)}>
+        Connections
+      </button>
+      <button disabled={!!demo} title={demo ? DEMO_OFF : undefined} onClick={() => setBlueprintsOpen(true)}>
+        API blueprints
+      </button>
       <button onClick={() => setKnowledgeBasesOpen(true)}>Knowledge bases</button>
       <button
-        disabled={disabled || errors > 0 || published}
-        title="Publish this workflow to the Templates gallery"
+        disabled={disabled || errors > 0 || published || !!demo}
+        title={demo ? DEMO_OFF : "Publish this workflow to the Templates gallery"}
         onClick={() => {
           void publishTemplate("", "general");
           setPublished(true);
@@ -64,9 +77,13 @@ export function Toolbar() {
         {published ? "Published ✓" : "Publish template"}
       </button>
       <button
-        disabled={disabled}
+        disabled={disabled || (!!demo && !demo.selfHealAvailable)}
         className={workflow?.selfHeal ? "primary" : ""}
-        title="On a node failure, ask the model to fix its config and retry once"
+        title={
+          demo && !demo.selfHealAvailable
+            ? `${DEMO_OFF} (it needs an AI model)`
+            : "On a node failure, ask the model to fix its config and retry once"
+        }
         onClick={() => void toggleSelfHeal()}
       >
         Self-heal {workflow?.selfHeal ? "on" : "off"}
@@ -86,8 +103,18 @@ export function Toolbar() {
       >
         {running ? "Running…" : "Dry run"}
       </button>
+      {demo?.liveLlmAvailable && (
+        <button
+          disabled={disabled || running || errors > 0}
+          title="A dry run whose llm steps call the real model (fast tier). One per hour in the demo."
+          onClick={() => void doRun("dry", { liveLlm: true })}
+        >
+          Dry run + live LLM
+        </button>
+      )}
       <button
-        disabled={disabled || running || errors > 0}
+        disabled={disabled || running || errors > 0 || !!demo}
+        title={demo ? `${DEMO_OFF}: live runs really send HTTP requests and Slack messages` : undefined}
         onClick={() => void doRun("live")}
       >
         Live run

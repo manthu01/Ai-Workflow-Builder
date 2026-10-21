@@ -2,6 +2,12 @@
 
 Plain-English intent → a visual node graph → an executable, deployable automation pipeline.
 
+<!-- After deploying (DEPLOY_DEMO_SPEC.md phases 4-5), replace this comment with:
+**[Live demo](https://workflows.<domain>)** (public demo mode: dry runs only, see below)
+
+![Demo: prompt → graph → dry run → approval](docs/demo.gif)
+-->
+
 Built to the spec in [`AI_Workflow_Blueprint.pdf`](./AI_Workflow_Blueprint.pdf). The
 "Expansion" feature list in that document is intentionally **not** built yet — it comes later.
 
@@ -71,7 +77,7 @@ npm run dev                   # core (watch) + api :8787 + worker + web :5173
 
 Open http://localhost:5173.
 
-- `COMPILER_MODE=stub` (default) — no API key needed, keyword-matches a graph.
+- `COMPILER_MODE=stub` (default) — no API key needed. A rule-based offline compiler: it reads the trigger type, URLs to fetch or send to, knowledge bases, loops, LLM steps, one if/otherwise branch, approvals and Slack channels from the prompt. Good for demos and engine work; not an AI.
 - `COMPILER_MODE=claude` — real compilation; needs `ANTHROPIC_API_KEY`. Model via `COMPILER_MODEL` (default `claude-sonnet-5`).
 - `EMBEDDINGS_MODE=local` (default) — knowledge-base embeddings run in-process; the model (~130 MB) downloads once on first use. `RERANK_MODE=local` likewise for the optional re-ranker (~90 MB). `EMBEDDINGS_MODE=voyage` needs `VOYAGE_API_KEY` and `EMBEDDING_DIMENSIONS=1024` (then clear `kb_chunks` and re-run `db:push`).
 
@@ -309,6 +315,54 @@ doesn't depend on the model: the complexity router sends 15 of the 40 prompts
 to the fast tier, 22 to balanced and 3 (all branching) to deep, so routing is
 not guaranteed to be cheaper than always using the balanced tier. The real run
 will show whether it is.
+
+## Public demo mode
+
+Set `DEMO_MODE=true` to run the app on a public URL. The app has no user
+accounts, and several features are dangerous to expose, so demo mode adds guard
+rails ([`apps/api/src/demo.ts`](apps/api/src/demo.ts)):
+
+| Off in the demo | Why |
+|---|---|
+| `code` and `local` nodes | `code` runs JavaScript in a worker thread, which is not a security sandbox; `local` runs shell commands |
+| Live runs | They really send HTTP requests (server-side request forgery against the server's network) and Slack messages. Dry runs mock both |
+| Connections (credential vault) | Strangers would be storing secrets on the server |
+| Deployments, webhooks, schedules | Persistent jobs that run unattended |
+| OpenAPI blueprint ingestion, knowledge base uploads, template publishing | Anyone could fill shared storage; visitors use the seeded sample knowledge base and templates |
+
+What it adds:
+
+- **Per-visitor isolation**: an anonymous httpOnly `awb_sid` cookie owns each
+  workflow (`workflows.owner_sid`); every workflow, run, version and analytics
+  query is scoped to it. Another visitor gets a 404.
+- **Compile limits**: 5 compiles per hour per visitor and per IP, 1,000-character
+  prompts, and a global daily cap (200) after which compiles fall back to the
+  offline stub. Self-heal shares the same budget, and one dry run per visitor
+  per hour can call the real model for its llm steps (fast tier). Both need an
+  API key; without one the demo runs entirely offline.
+- **Cleanup**: visitor workflows (with their runs and versions) are deleted
+  after 24 hours.
+- The API refuses all of the above with a 403, the UI greys the controls out,
+  and the worker refuses live runs, `code` nodes and local tasks itself as a
+  second line of defence. Tests: [`apps/api/src/demo.test.ts`](apps/api/src/demo.test.ts).
+
+### Deploying the demo
+
+`docker-compose.prod.yml` runs Postgres (pgvector), Temporal (dev server with a
+SQLite file on a volume, UI not exposed), a one-off schema migration, the API,
+the worker, and `awb-web`: nginx serving the built UI and proxying `/api` (with
+buffering off for the live-run event stream). No service publishes a port; a
+shared Caddy proxy reaches `awb-web` over the external `demo-proxy` network and
+handles HTTPS.
+
+```bash
+docker network create demo-proxy            # once per server, shared with Caddy
+cp .env.prod.example .env.prod              # fill in the secrets (openssl rand -base64 32)
+docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+```
+
+`GET /api/health` checks Postgres and Temporal and returns 503 if either is
+down; point an uptime monitor at it.
 
 ## Status
 

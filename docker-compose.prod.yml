@@ -1,0 +1,97 @@
+# Public demo stack. Deploy (see DEPLOY_DEMO_SPEC.md and the shared VM guide):
+#   docker network create demo-proxy   # once per VM, shared with Caddy
+#   cp .env.prod.example .env.prod     # fill in secrets; never commit it
+#   docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+# Nothing publishes a port: Caddy reaches awb-web over the demo-proxy network.
+name: awb-prod
+
+x-app: &app
+  image: awb-app:latest
+  # Built once by the migrate service below; api and worker reuse it.
+  pull_policy: never
+  restart: unless-stopped
+  env_file: .env.prod
+  environment: &app-env
+    DATABASE_URL: postgres://awb:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.prod}@postgres:5432/awb
+    TEMPORAL_ADDRESS: temporal:7233
+    AWB_API_URL: http://api:8787
+  networks: [internal]
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: awb
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: awb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U awb"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [internal]
+
+  # Temporal dev server with a SQLite file on a volume, so runs survive restarts.
+  # Its web UI is not exposed.
+  temporal:
+    image: temporalio/temporal:1.8.3
+    restart: unless-stopped
+    command: ["server", "start-dev", "--ip", "0.0.0.0", "--headless", "--db-filename", "/home/temporal/temporal.db"]
+    volumes:
+      # Mounted on the image's home dir so the volume is owned by the temporal user.
+      - temporal:/home/temporal
+    healthcheck:
+      test: ["CMD", "temporal", "operator", "cluster", "health", "--address", "127.0.0.1:7233"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks: [internal]
+
+  # One-off: creates the pgvector extension and syncs the schema, then exits.
+  migrate:
+    <<: *app
+    build: { context: ., target: app }
+    pull_policy: build
+    restart: "no"
+    command: ["npm", "run", "db:push", "-w", "@awb/api"]
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    <<: *app
+    command: ["node", "apps/api/dist/index.js"]
+    volumes:
+      - models:/app/node_modules/@huggingface/transformers/.cache
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      temporal: { condition: service_healthy }
+
+  worker:
+    <<: *app
+    command: ["node", "apps/worker/dist/index.js"]
+    volumes:
+      - models:/app/node_modules/@huggingface/transformers/.cache
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      temporal: { condition: service_healthy }
+
+  awb-web:
+    build: { context: ., target: web }
+    image: awb-web:latest
+    container_name: awb-web
+    restart: unless-stopped
+    depends_on: [api]
+    networks: [internal, demo-proxy]
+
+volumes:
+  pgdata:
+  temporal:
+  models:
+
+networks:
+  internal:
+  demo-proxy:
+    external: true

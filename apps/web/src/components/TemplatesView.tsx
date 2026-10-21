@@ -22,6 +22,7 @@ export function TemplatesView() {
   const loadTemplates = useApp((s) => s.loadTemplates);
   const useTemplate = useApp((s) => s.useTemplate);
   const removeTemplate = useApp((s) => s.removeTemplate);
+  const demo = useApp((s) => s.demo?.demo ?? false);
 
   useEffect(() => {
     void loadTemplates();
@@ -60,7 +61,7 @@ export function TemplatesView() {
                 {t.nodeCount} nodes · {t.cloneCount} clone{t.cloneCount === 1 ? "" : "s"}
               </span>
               <div style={{ flex: 1 }} />
-              {!t.builtIn && (
+              {!t.builtIn && !demo && (
                 <button
                   style={{ color: "var(--fail)" }}
                   onClick={() => void removeTemplate(t.id)}

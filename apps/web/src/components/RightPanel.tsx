@@ -16,6 +16,7 @@ const LABELS: Record<Tab, string> = {
 export function RightPanel() {
   const selectedNodeId = useApp((s) => s.selectedNodeId);
   const run = useApp((s) => s.run);
+  const demo = useApp((s) => s.demo?.demo ?? false);
   const [tab, setTab] = useState<Tab>("run");
 
   useEffect(() => {
@@ -44,7 +45,14 @@ export function RightPanel() {
         ) : tab === "run" ? (
           <RunPanel />
         ) : tab === "deploy" ? (
-          <DeployPanel />
+          demo ? (
+            <div className="demo-note">
+              Deployments (webhook listeners) and schedules are disabled in the public demo, because
+              they run workflows unattended. They work when you run the app locally.
+            </div>
+          ) : (
+            <DeployPanel />
+          )
         ) : (
           <HistoryPanel />
         )}

@@ -11,10 +11,24 @@ import {
 import { db, schema } from "../db/client.js";
 import { startRun, finalizeRun } from "../engine.js";
 import { getTemporalClient } from "../temporal/client.js";
+import { env } from "../env.js";
+import {
+  demoForbidden,
+  demoGraphGuard,
+  demoHasModel,
+  findRun,
+  findWorkflow,
+  takeCompileBudget,
+  takeLiveLlm,
+} from "../demo.js";
 
 export const runRoutes = new Hono();
 
-const StartBody = z.object({ mode: z.enum(["dry", "live"]).default("dry") });
+const StartBody = z.object({
+  mode: z.enum(["dry", "live"]).default("dry"),
+  /** Demo mode only: spend the visitor's one hourly real-model dry run (fast tier). */
+  liveLlm: z.boolean().default(false),
+});
 
 /** Start a run and return immediately; stream progress from /runs/:id/stream. */
 runRoutes.post("/workflows/:id/runs", async (c) => {
@@ -22,11 +36,28 @@ runRoutes.post("/workflows/:id/runs", async (c) => {
   const parsed = StartBody.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid body" }, 400);
 
-  const [wf] = await db
-    .select()
-    .from(schema.workflows)
-    .where(eq(schema.workflows.id, workflowId));
+  const wf = await findWorkflow(c, workflowId);
   if (!wf) return c.json({ error: "workflow not found" }, 404);
+  if (env.DEMO_MODE && parsed.data.mode === "live") return demoForbidden(c, "Live runs");
+  const blockedKinds = demoGraphGuard(c, wf.graph);
+  if (blockedKinds) return blockedKinds;
+
+  // Demo mode: self-heal needs a model and shares the compile budget; the live
+  // LLM dry run is limited to one per visitor per hour.
+  const notices: string[] = [];
+  let selfHeal = wf.selfHeal;
+  if (env.DEMO_MODE && selfHeal) {
+    const budget = demoHasModel() ? takeCompileBudget(c) : undefined;
+    if (!budget?.ok || budget.useStub) {
+      selfHeal = false;
+      notices.push("self-heal is off for this run (demo compile budget used up)");
+    }
+  }
+  let liveLlm = false;
+  if (env.DEMO_MODE && parsed.data.liveLlm) {
+    liveLlm = takeLiveLlm(c);
+    if (!liveLlm) notices.push("live LLM run not available right now; llm nodes use mock output");
+  }
 
   const blocking = validateGraph(wf.graph).filter((i) => i.level === "error");
   if (blocking.length > 0) {
@@ -39,10 +70,11 @@ runRoutes.post("/workflows/:id/runs", async (c) => {
       graph: wf.graph,
       mode: parsed.data.mode,
       trigger: "manual",
-      selfHeal: wf.selfHeal,
+      selfHeal,
+      ...(liveLlm ? { dryRunLlm: "live" as const, llmTier: "fast" as const } : {}),
     });
     void done.catch(() => {}); // background-finalized; no one awaits here
-    return c.json({ runId, mode: parsed.data.mode }, 202);
+    return c.json({ runId, mode: parsed.data.mode, liveLlm, notices }, 202);
   } catch (err) {
     console.error("run start failed", err);
     return c.json({ error: `engine error: ${(err as Error).message}` }, 502);
@@ -52,10 +84,7 @@ runRoutes.post("/workflows/:id/runs", async (c) => {
 /** Server-Sent Events: live per-node progress until the engine finishes. */
 runRoutes.get("/runs/:id/stream", (c) => {
   return streamSSE(c, async (stream) => {
-    const [run] = await db
-      .select()
-      .from(schema.runs)
-      .where(eq(schema.runs.id, c.req.param("id")));
+    const run = await findRun(c, c.req.param("id"));
     if (!run) {
       await stream.writeSSE({ event: "error", data: "run not found" });
       return;
@@ -132,10 +161,7 @@ runRoutes.post("/runs/:id/approve", async (c) => {
   const parsed = ApproveBody.safeParse(await c.req.json().catch(() => ({})));
   if (!parsed.success) return c.json({ error: "invalid body" }, 400);
 
-  const [run] = await db
-    .select()
-    .from(schema.runs)
-    .where(eq(schema.runs.id, c.req.param("id")));
+  const run = await findRun(c, c.req.param("id"));
   if (!run) return c.json({ error: "run not found" }, 404);
   if (run.status !== "running") return c.json({ error: "run is not waiting" }, 409);
 
@@ -155,6 +181,7 @@ runRoutes.post("/runs/:id/approve", async (c) => {
 });
 
 runRoutes.get("/workflows/:id/runs", async (c) => {
+  if (!(await findWorkflow(c, c.req.param("id")))) return c.json({ error: "not found" }, 404);
   const rows = await db
     .select()
     .from(schema.runs)
@@ -164,10 +191,7 @@ runRoutes.get("/workflows/:id/runs", async (c) => {
 });
 
 runRoutes.get("/runs/:id", async (c) => {
-  const [run] = await db
-    .select()
-    .from(schema.runs)
-    .where(eq(schema.runs.id, c.req.param("id")));
+  const run = await findRun(c, c.req.param("id"));
   if (!run) return c.json({ error: "not found" }, 404);
   const nodes = await db
     .select()

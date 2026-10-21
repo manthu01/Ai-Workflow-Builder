@@ -9,6 +9,8 @@ export function getTemporalClient(): Promise<Client> {
     clientPromise = Connection.connect({ address: env.TEMPORAL_ADDRESS }).then(
       (connection) => new Client({ connection, namespace: env.TEMPORAL_NAMESPACE }),
     );
+    // Don't cache a failed connect: Temporal may just not be up yet.
+    clientPromise.catch(() => (clientPromise = undefined));
   }
   return clientPromise;
 }

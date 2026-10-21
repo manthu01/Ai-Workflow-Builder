@@ -12,7 +12,7 @@
     "db:push": "tsx scripts/db-extensions.ts && drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "eval:retrieval": "tsx --env-file-if-exists=../../.env scripts/eval-retrieval.ts",
-    "test": "tsx --test \"eval/**/*.test.ts\"",
+    "test": "tsx --test \"eval/**/*.test.ts\" \"src/**/*.test.ts\"",
     "eval:compiler": "tsx --env-file-if-exists=../../.env scripts/eval-compiler.ts"
   },
   "dependencies": {
