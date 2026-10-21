@@ -8,8 +8,11 @@ Plain-English intent → a visual node graph → an executable, deployable autom
 **[Live demo](https://workflows.<domain>)**: public demo mode, dry runs only.
 -->
 
-Built to the spec in [`AI_Workflow_Blueprint.pdf`](./AI_Workflow_Blueprint.pdf): all four
-core phases and all ten "Expansion" features, plus knowledge bases (RAG). See [Status](#status).
+The design has four core phases: trigger and input configuration, AI compilation of the
+request into a DAG, durable step-by-step execution, and testing, debugging and deployment.
+On top of those come human approvals, self-healing, branching and parallel paths, version
+history, analytics, templates, OpenAPI ingestion, local execution, sandboxed code and image
+nodes, and knowledge bases (RAG). See [Status](#status).
 
 ## Stack
 
@@ -282,7 +285,7 @@ ones: flat 800-token chunks went from 90.0% to 96.7% recall@1 (MRR 0.950 →
 0.983). The corpus is small (36 chunks), so treat these as a regression check
 rather than a benchmark.
 
-## Compiler evaluation (harness done, Claude numbers pending)
+## Compiler evaluation harness
 
 `npm run eval:compiler -w apps/api` measures how often the NL → DAG compiler
 produces a *correct* graph, not just a valid one. Results go to

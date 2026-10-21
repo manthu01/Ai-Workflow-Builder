@@ -11,3 +11,5 @@ coverage/
 .vite/
 .turbo/
 .env.prod
+*.pdf
+*_SPEC.md
