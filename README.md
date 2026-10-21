@@ -2,14 +2,14 @@
 
 Plain-English intent → a visual node graph → an executable, deployable automation pipeline.
 
-<!-- After deploying (DEPLOY_DEMO_SPEC.md phases 4-5), replace this comment with:
-**[Live demo](https://workflows.<domain>)** (public demo mode: dry runs only, see below)
+![Demo: a plain-English prompt compiles into a graph, a dry run lights up each node, pauses for approval, then finishes](docs/demo.gif)
 
-![Demo: prompt → graph → dry run → approval](docs/demo.gif)
+<!-- Once deployed (see "Deploying the demo"), add the link here:
+**[Live demo](https://workflows.<domain>)**: public demo mode, dry runs only.
 -->
 
-Built to the spec in [`AI_Workflow_Blueprint.pdf`](./AI_Workflow_Blueprint.pdf). The
-"Expansion" feature list in that document is intentionally **not** built yet — it comes later.
+Built to the spec in [`AI_Workflow_Blueprint.pdf`](./AI_Workflow_Blueprint.pdf): all four
+core phases and all ten "Expansion" features, plus knowledge bases (RAG). See [Status](#status).
 
 ## Stack
 
@@ -354,6 +354,10 @@ the worker, and `awb-web`: nginx serving the built UI and proxying `/api` (with
 buffering off for the live-run event stream). No service publishes a port; a
 shared Caddy proxy reaches `awb-web` over the external `demo-proxy` network and
 handles HTTPS.
+
+On a fresh Ubuntu 24.04 server, [`deploy/setup-vm.sh`](deploy/setup-vm.sh) does all of
+it in one go (Docker, swap, firewall, DuckDNS, Caddy with HTTPS, secrets, the stack):
+`bash setup-vm.sh --domain <name>.duckdns.org`. By hand:
 
 ```bash
 docker network create demo-proxy            # once per server, shared with Caddy
