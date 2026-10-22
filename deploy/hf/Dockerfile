@@ -33,6 +33,9 @@ ARG REF=main
 RUN git init -q . && git remote add origin "$REPO" \
  && git fetch -q --depth 1 origin "$REF" && git checkout -q FETCH_HEAD
 
+# onnxruntime-node's install script otherwise fetches a CUDA build from GitHub
+# releases; the demo runs on CPU and the CPU binaries ship in the package.
+ENV ONNXRUNTIME_NODE_INSTALL_CUDA=skip
 RUN npm ci --no-audit --no-fund \
  && npm run build -w @awb/core -w @awb/embeddings -w @awb/api -w @awb/worker -w @awb/web
 
