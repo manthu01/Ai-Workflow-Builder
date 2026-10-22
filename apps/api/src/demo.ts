@@ -60,13 +60,16 @@ export const demoSession: MiddlewareHandler = async (c, next) => {
   let sid = getCookie(c, SID_COOKIE);
   if (!sid || !SID_PATTERN.test(sid)) {
     sid = nanoid(24);
-    setCookie(c, SID_COOKIE, sid, {
+    const options = {
       httpOnly: true,
-      sameSite: "Lax",
-      secure: env.PUBLIC_URL.startsWith("https://"),
       path: "/",
       maxAge: 30 * 24 * 60 * 60,
-    });
+    };
+    if (env.DEMO_COOKIE_CROSS_SITE) {
+      setCookie(c, SID_COOKIE, sid, { ...options, sameSite: "None", secure: true, partitioned: true });
+    } else {
+      setCookie(c, SID_COOKIE, sid, { ...options, sameSite: "Lax", secure: env.PUBLIC_URL.startsWith("https://") });
+    }
   }
   c.set("sid", sid);
   return next();

@@ -53,6 +53,15 @@ const EnvSchema = z.object({
   DEMO_RETENTION_HOURS: z.coerce.number().positive().default(24),
   /** Linked from the demo banner. */
   DEMO_REPO_URL: z.string().default("https://github.com/manthu01/Ai-Workflow-Builder"),
+  /**
+   * Set when the demo is embedded in another site's iframe (e.g. a Hugging Face
+   * Space page): the visitor cookie becomes SameSite=None + Partitioned so the
+   * browser still sends it from inside the frame. Requires an https PUBLIC_URL.
+   */
+  DEMO_COOKIE_CROSS_SITE: z
+    .enum(["true", "false", "1", "0", ""])
+    .default("false")
+    .transform((v) => v === "true" || v === "1"),
 });
 
 export const env = EnvSchema.parse(process.env);
