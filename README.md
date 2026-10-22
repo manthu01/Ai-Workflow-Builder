@@ -18,7 +18,7 @@ nodes, and knowledge bases (RAG). See [Status](#status).
 
 | Layer | Choice | Why |
 |---|---|---|
-| Execution engine | **Temporal** (TypeScript SDK) | Durable, stateful, per-node retries — blueprint Phase 3, for free |
+| Execution engine | **Temporal** (TypeScript SDK) | Durable, stateful, per-node retries for the execution phase, for free |
 | API | **Hono** on Node | Small, fast HTTP layer |
 | Compiler | **Claude** (`@anthropic-ai/sdk`, structured outputs) behind a provider interface | NL → DAG |
 | Persistence | **PostgreSQL** + **Drizzle ORM** | Workflows, runs, per-node run rows |
@@ -36,7 +36,7 @@ apps/web          React canvas + chat + run panel
 
 ## Milestone 1 — the vertical slice (done)
 
-A prompt flows end-to-end across all four blueprint phases:
+A prompt flows end-to-end across all four core phases:
 
 1. **Phase 1 — input** — type a workflow in plain English in the chat panel.
 2. **Phase 2 — compile** — `POST /api/workflows/compile` sends it to Claude (or the offline
@@ -373,5 +373,5 @@ down; point an uptime monitor at it.
 
 ## Status
 
-**All four blueprint core phases and all ten Expansion features are implemented**
+**All four core phases and all ten Expansion features are implemented**
 (#1–#10), plus a loop/iterator node and knowledge bases (RAG).
